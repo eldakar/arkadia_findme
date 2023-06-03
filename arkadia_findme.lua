@@ -18,6 +18,12 @@ function arkadia_findme:add()
         cecho("\n<CadetBlue>(skrypty)<tomato>: Ten pokoj juz istnieje w bazie!\n")
         return
     end
+
+    if amap.localization.current_exit == "" then
+        cecho("\n<CadetBlue>(skrypty)<tomato>: Nie mozna dodac pokoju bez widocznych wyjscs!\n")
+        return
+    end
+    
     if gmcp.room.info.map then
         db:add(self.mydb.locations, {
             room_id=amap.curr.id,
@@ -33,6 +39,7 @@ function arkadia_findme:add()
             created_by=ateam.options.own_name
         })
         cecho("\n<CadetBlue>(skrypty)<tomato>: Dodalem lokacje GMCP!\n")
+        arkadia_findme:set_location_color()
     else
         db:add(self.mydb.locations, {
             room_id=amap.curr.id,
@@ -48,6 +55,7 @@ function arkadia_findme:add()
             created_by=ateam.options.own_name
         })
         cecho("\n<CadetBlue>(skrypty)<tomato>: Dodalem lokacje bez GMCP!\n")
+        arkadia_findme:set_location_color()
     end
 end
 
@@ -120,11 +128,43 @@ function arkadia_findme:findme()
         return true
     end
 
-    -- depth 1 : match by short + exits, within mudlet map region
+    -- depth 1 : match by short + exits, within the mudlet map region
     local results = db:fetch(self.mydb.locations, db:AND(
         db:eq(self.mydb.locations.region, getAreaTableSwap()[getRoomArea(amap.curr.id)]),
         db:eq(self.mydb.locations.short, amap.localization.current_short),
         db:eq(self.mydb.locations.exits, amap.localization.current_exit)
+    ))
+
+    if #results == 1 then
+        amap:set_position(results[1].room_id, true)
+        return true
+    end
+
+    -- depth 2 : match by short, within the mudlet map region
+    local results = db:fetch(self.mydb.locations, db:AND(
+        db:eq(self.mydb.locations.region, getAreaTableSwap()[getRoomArea(amap.curr.id)]),
+        db:eq(self.mydb.locations.short, amap.localization.current_short)
+    ))
+
+    if #results == 1 then
+        amap:set_position(results[1].room_id, true)
+        return true
+    end
+
+    -- depth 3 : match by short + exits, ignoring the region
+    local results = db:fetch(self.mydb.locations, db:AND(
+        db:eq(self.mydb.locations.short, amap.localization.current_short),
+        db:eq(self.mydb.locations.exits, amap.localization.current_exit)
+    ))
+
+    if #results == 1 then
+        amap:set_position(results[1].room_id, true)
+        return true
+    end
+
+    -- depth 4 : match by short only :)
+    local results = db:fetch(self.mydb.locations, db:AND(
+        db:eq(self.mydb.locations.short, amap.localization.current_short)
     ))
 
     if #results == 1 then
@@ -136,7 +176,7 @@ end
 function arkadia_findme:createZlokAlias()
     fmZlok = tempAlias("^/zlok2$", [[
         if arkadia_findme:findme() then
-            cecho("\n<CadetBlue>(skrypty):<green>(findme) Zlokalizowalem.")
+            cecho("\n<CadetBlue>(skrypty):<green>(findme) Zlokalizowalem.\n")
         end
     ]])
 end
@@ -170,11 +210,12 @@ function amap:locate(noprint, skip_db)
             msg = "Nie moge Cie zlokalizowac na podstawie tych koordynatow (prawdopodobnie lokacja z tymi koordynatami nie istnieje)"
         end
     else
-        if not skip_db and amap.localization:try_to_locate() then
-            msg = "Zlokalizowalem po opisie lokacji i wyjsciach."
+        if arkadia_findme:findme() then
+            msg = "<green>(findme) Zlokalizowalem.<reset>"
+            ret = true            
+        elseif not skip_db and amap.localization:try_to_locate() then
+            msg = "<yellow>Zlokalizowalem po opisie lokacji i wyjsciach.<reset>"
             ret = true
-        elseif arkadia_findme:findme() then
-            msg = "<green>(findme) Zlokalizowalem."
         else
             msg = "GMCP nie zawiera koordynatow, nie moge cie zlokalizowac na mapie"
         end
