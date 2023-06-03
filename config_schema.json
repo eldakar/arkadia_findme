@@ -1,0 +1,18 @@
+{
+    "macro_to_reload_elements": {
+    },
+    "fields": [
+        {
+            "name": "arkadia_findme.highlight_current_room",
+            "default_value": false,
+            "field_type": "boolean",
+            "macros_on_modify": []
+        },
+        {
+            "name": "arkadia_findme.search_depth",
+            "default_value": 0,
+            "field_type": "number",
+            "macros_on_modify": []
+        }
+    ]
+}
