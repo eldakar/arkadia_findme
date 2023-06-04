@@ -13,6 +13,12 @@
             "default_value": 0,
             "field_type": "number",
             "macros_on_modify": []
+        },
+        {
+            "name": "arkadia_findme.debug_enabled",
+            "default_value": false,
+            "field_type": "boolean",
+            "macros_on_modify": []
         }
     ]
 }

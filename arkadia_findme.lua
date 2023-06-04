@@ -1,29 +1,107 @@
 arkadia_findme = arkadia_findme or {
     state = {},
     handler_data = nil,
+    pre_zlok_room = 0,
     mydb = nil
 }
 --findme.highlight_current_room
 --findme.search_depth
 function arkadia_findme:createHelpAlias()
-    fmHelp = tempAlias("^/findme help$", [[
+    fmHelp = tempAlias("^/findme$", [[
         cecho("<gray>+------------------------------------------------------------+<reset>\n")
         cecho("<gray>|  <yellow>                   .: Baza lokacji :.                     <gray>|<reset>\n")
+        cecho("<gray>|                                                            |<reset>\n")
+        cecho("<gray>|  - rozszerzone odnajdywanie sie na mapce                   |<reset>\n")
+        cecho("<gray>|  - mozliwosc dodawania lokacji w trakcie gry               |<reset>\n")
+        cecho("<gray>|  - wyszukiwanie lokacji w poblizu zgubienia sie            |<reset>\n")
+        cecho("<gray>|  - rozpoznawanie czy postac sie zgubila                    |<reset>\n")
+        cecho("<gray>|  - wyswietlanie stanu pokoju na mapce                      |<reset>\n")
+        cecho("<gray>|  - (wylaczone) heatmap opisania regionu                    |<reset>\n")
+        cecho("<gray>|                                                            |<reset>\n")
+        cecho("<gray>|  <yellow>Aliasy                                                    <gray>|<reset>\n")
+        cecho("<gray>|  <white>/findme<reset> - ta pomoc                                        |<reset>\n")
+        cecho("<gray>|  <white>/rinfo<reset>  - wyswietla stan opisania pokoju                  |<reset>\n")
+        cecho("<gray>|  <green>/zlok<reset>   - podmieniony alias mudleta, korzysta z tej bazy  |<reset>\n")
+        cecho("<gray>|  <green>/wroc<reset>   - cofa mapke do lokacji w ktorej uzylismy /zlok   |<reset>\n")
+        cecho("<gray>|  <red>/radd<reset>   - dodaje opis pokoju do bazy, nadpisuje poprzedni |<reset>\n")
+        cecho("<gray>|  <red>/rwipe<reset>  - usuwa wszystkie wpisy pokoju                    |<reset>\n")
+        cecho("<gray>|                                                            |<reset>\n")
+        cecho("<gray>|  <yellow>Opcje                                                     <gray>|<reset>\n")
+        cecho("<gray>|  <light_slate_blue>arkadia_findme.highlight_current_room = true/false        <reset>|<reset>\n")
+        cecho("<gray>|            czy kolorowac stan zapisu pokoju na mapce       |<reset>\n")
+        cecho("<gray>|  <light_slate_blue>arkadia_findme.search_depth = 0 do 4                      <reset>|<reset>\n")
+        cecho("<gray>|            Ustaw poziom wymaganych informacji              |<reset>\n")    
+        cecho("<gray>|            0 - short + exits + region + pora roku + dzien  |<reset>\n")
+        cecho("<gray>|            1 - short + exits + region                      |<reset>\n")
+        cecho("<gray>|            2 - short + region                              |<reset>\n")
+        cecho("<gray>|            3 - short + exits                               |<reset>\n")
+        cecho("<gray>|            4 - short                                       |<reset>\n")
+        cecho("<gray>|  <light_slate_blue>arkadia_findme.debug_enabled = true/false                 <reset>|<reset>\n")
+        cecho("<gray>|            wyswietlaj liczbe wynikow dla kazdego poziomu   |<reset>\n")
+        cecho("<gray>+------------------------------------------------------------+<reset>\n")
     ]])
 end
 
-function arkadia_findme:add()
+function arkadia_findme:calculate_distance(room_from, room_to)
+    local ret = 0
+
+end
+
+function arkadia_findme:wipe_room()
     local test_room = arkadia_findme:get_color()
-    if test_room == 2 then
-        cecho("\n<CadetBlue>(skrypty)<tomato>: Ten pokoj juz istnieje w bazie!\n")
+    if test_room > 0 then
+        local results = db:delete(self.mydb.locations, db:AND(
+            db:eq(self.mydb.locations.room_id, amap.curr.id)
+        ))
+        return true
+    end
+    return false
+end
+function arkadia_findme:createWipeAlias()
+    fmWipe = tempAlias("^/rwipe$", [[if arkadia_findme:wipe_room() then cecho("\n<CadetBlue>(skrypty):<green>(findme) Usunalem wszystkie wpisy tego pokoju.\n") end]])
+end
+
+function arkadia_findme:show_room()
+    local results = db:fetch(self.mydb.locations, db:AND(
+        db:eq(self.mydb.locations.room_id, amap.curr.id)
+    ))
+
+    if results == 0 then
+        cecho("\n<CadetBlue>(skrypty):<green>(findme) Room Info : <yellow>" .. amap.curr.id .. "<green> wyglada na pusty ;(<reset>")
         return
     end
 
-    if amap.localization.current_exit == "" then
-        cecho("\n<CadetBlue>(skrypty)<tomato>: Nie mozna dodac pokoju bez widocznych wyjscs!\n")
+    cecho("\n<CadetBlue>(skrypty):<green>(findme) Room Info : <yellow>" .. amap.curr.id .. "<reset>")
+    for k, v in pairs(results) do
+        cecho("\n<gray>Season : <light_slate_blue>" .. results[k].season .. "<reset> Daylight : <light_slate_blue>" .. results[k].daylight .. "<reset>")
+        cecho("\n<gray>Short  : <CornflowerBlue>" .. results[k].short .. "<reset>")
+        cecho("\n<gray>" .. results[k].exits .. "<reset>\n")
+    end
+end
+function arkadia_findme:createInfoAlias()
+    fmInfo = tempAlias("^/rinfo$", [[arkadia_findme:show_room()]])
+end
+
+function arkadia_findme:add()
+    if not ateam.objs[ateam.my_id].can_see_in_room or ateam.objs[ateam.my_id].editing or ateam.objs[ateam.my_id].paralyzed then
+        cecho("\n<CadetBlue>(skrypty)<tomato>: <red>Postac nie jest gotowa...\n")
         return
     end
-    
+    local test_room = arkadia_findme:get_color()
+    if test_room == 2 then
+        cecho("\n<CadetBlue>(skrypty)<tomato>: Ten pokoj juz istnieje w bazie, nadpisuje.\n")
+        local results = db:delete(self.mydb.locations, db:AND(
+            db:eq(self.mydb.locations.room_id, amap.curr.id),
+            db:eq(self.mydb.locations.season, gmcp.room.time.season),
+            db:eq(self.mydb.locations.daylight, tostring(gmcp.room.time.daylight))
+        ))
+    end
+
+    if amap.localization.current_exit == "" then
+        cecho("\n<CadetBlue>(skrypty)<tomato>: Nie mozna dodac pokoju bez widocznych wyjcs!\n")
+        return
+    end
+
     if gmcp.room.info.map then
         db:add(self.mydb.locations, {
             room_id=amap.curr.id,
@@ -57,6 +135,9 @@ function arkadia_findme:add()
         cecho("\n<CadetBlue>(skrypty)<tomato>: Dodalem lokacje bez GMCP!\n")
         arkadia_findme:set_location_color()
     end
+end
+function arkadia_findme:createAddAlias()
+    fmAdd = tempAlias("^/radd$", [[arkadia_findme:add()]])
 end
 
 -- 0 - none
@@ -107,6 +188,13 @@ function arkadia_findme:set_location_color()
         )
     end
 end
+
+function arkadia_findme:debug_print(text)
+    if arkadia_findme.debug_enabled then
+        cecho("\n<CadetBlue>(skrypty):<green>(findme) " .. text)
+    end
+end
+
 -- room_id - amap.curr.id
 -- region - getAreaTableSwap()[getRoomArea(14608)]
 -- area - gmcp.room.info.map.name
@@ -123,6 +211,7 @@ function arkadia_findme:findme()
         db:eq(self.mydb.locations.exits, amap.localization.current_exit)
     ))
 
+    arkadia_findme:debug_print("D0: SDSE : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
@@ -135,6 +224,7 @@ function arkadia_findme:findme()
         db:eq(self.mydb.locations.exits, amap.localization.current_exit)
     ))
 
+    arkadia_findme:debug_print("D1: -RSE : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
@@ -146,6 +236,7 @@ function arkadia_findme:findme()
         db:eq(self.mydb.locations.short, amap.localization.current_short)
     ))
 
+    arkadia_findme:debug_print("D2: -RS- : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
@@ -157,6 +248,7 @@ function arkadia_findme:findme()
         db:eq(self.mydb.locations.exits, amap.localization.current_exit)
     ))
 
+    arkadia_findme:debug_print("D3: --SE : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
@@ -167,6 +259,7 @@ function arkadia_findme:findme()
         db:eq(self.mydb.locations.short, amap.localization.current_short)
     ))
 
+    arkadia_findme:debug_print("D4: --S- : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
@@ -181,6 +274,13 @@ function arkadia_findme:createZlokAlias()
     ]])
 end
 
+function arkadia_findme:createWrocAlias()
+    fmWroc = tempAlias("^/wroc$", [[
+        cecho("\n<CadetBlue>(skrypty):<green>(findme) OK, cofam.\n")
+        amap:set_position(arkadia_findme.pre_zlok_room, true)
+    ]])
+end
+
 function amap:locate(noprint, skip_db)
     amap.history = get_new_list()
     local tmp_loc = amap:extract_gmcp()
@@ -188,6 +288,7 @@ function amap:locate(noprint, skip_db)
     local msg = nil
     local ret = false
 
+    arkadia_findme.pre_zlok_room = amap.curr.id
     -- immediately clear next dir bind
     amap.next_dir_bind = nil
 
@@ -238,6 +339,9 @@ end
 function arkadia_findme:init()
     arkadia_findme:createHelpAlias()
     arkadia_findme:createZlokAlias()
+    arkadia_findme:createWipeAlias()
+    arkadia_findme:createInfoAlias()
+    arkadia_findme:createAddAlias()
     db:create("findmelocations", {
         locations={
             "room_id",
