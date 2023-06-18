@@ -203,6 +203,16 @@ end
 -- short - amap.localization.current_short
 -- exits - amap.localization.current_exit
 function arkadia_findme:findme()
+    -- depth negative : sanity check 
+    -- depth 1.1 : match distinct by short + exits, within the mudlet map region
+    local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, exits, region from locations where short = \"" .. amap.localization.current_short .. "\" and exits = \"" .. amap.localization.current_exit .. "\" and region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)] .. "\" and room_id = " .. amap.curr.id)
+
+    arkadia_findme:debug_print("----: ROOM : <red>" .. #results .. " ")
+    if #results == 1 then
+        --amap:set_position(results[1].room_id, true)
+        return true
+    end
+
     -- depth 0 : exact match
     local results = db:fetch(self.mydb.locations, db:AND(
         db:eq(self.mydb.locations.season, gmcp.room.time.season),
@@ -211,7 +221,7 @@ function arkadia_findme:findme()
         db:eq(self.mydb.locations.exits, amap.localization.current_exit)
     ))
 
-    arkadia_findme:debug_print("D0: SDSE : <red>" .. #results .. " ")
+    arkadia_findme:debug_print("D0  : SDSE : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
@@ -224,7 +234,16 @@ function arkadia_findme:findme()
         db:eq(self.mydb.locations.exits, amap.localization.current_exit)
     ))
 
-    arkadia_findme:debug_print("D1: -RSE : <red>" .. #results .. " ")
+    arkadia_findme:debug_print("D1  : -RSE : <red>" .. #results .. " ")
+    if #results == 1 then
+        amap:set_position(results[1].room_id, true)
+        return true
+    end
+
+    -- depth 1.1 : match distinct by short + exits, within the mudlet map region
+    local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, exits, region from locations where short = \"" .. amap.localization.current_short .. "\" and exits = \"" .. amap.localization.current_exit .. "\" and region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)] .. "\"")
+
+    arkadia_findme:debug_print("D1.1: -RSE : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
@@ -236,30 +255,48 @@ function arkadia_findme:findme()
         db:eq(self.mydb.locations.short, amap.localization.current_short)
     ))
 
-    arkadia_findme:debug_print("D2: -RS- : <red>" .. #results .. " ")
+    arkadia_findme:debug_print("D2  : -RS- : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
     end
 
-    -- depth 3 : match by short + exits, ignoring the region
+    -- depth 2.1 : match distinct by short, within the mudlet map region
+    local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, region from locations where short = \"" .. amap.localization.current_short .. "\" and region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)] .. "\"")
+
+    arkadia_findme:debug_print("D2.1: -RS- : <red>" .. #results .. " ")
+    if #results == 1 then
+        amap:set_position(results[1].room_id, true)
+        return true
+    end    
+
+    -- depth 3 : match by short + exits, ignoring region
     local results = db:fetch(self.mydb.locations, db:AND(
         db:eq(self.mydb.locations.short, amap.localization.current_short),
         db:eq(self.mydb.locations.exits, amap.localization.current_exit)
     ))
 
-    arkadia_findme:debug_print("D3: --SE : <red>" .. #results .. " ")
+    arkadia_findme:debug_print("D3  : --SE : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
     end
+
+    -- depth 3.1 : match distinct by short + exits, ignoring region
+    local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, exits from locations where short = \"" .. amap.localization.current_short .. "\" and exits = \"" .. amap.localization.current_exit  .. "\"")
+
+    arkadia_findme:debug_print("D3.1: --SE : <red>" .. #results .. " ")
+    if #results == 1 then
+        amap:set_position(results[1].room_id, true)
+        return true
+    end    
 
     -- depth 4 : match by short only :)
     local results = db:fetch(self.mydb.locations, db:AND(
         db:eq(self.mydb.locations.short, amap.localization.current_short)
     ))
 
-    arkadia_findme:debug_print("D4: --S- : <red>" .. #results .. " ")
+    arkadia_findme:debug_print("D4  : --S- : <red>" .. #results .. " ")
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
