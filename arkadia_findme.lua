@@ -73,10 +73,11 @@ function arkadia_findme:show_room()
 
     cecho("\n<CadetBlue>(skrypty):<green>(findme) Room Info : <yellow>" .. amap.curr.id .. "<reset>")
     for k, v in pairs(results) do
-        cecho("\n<gray>Season : <light_slate_blue>" .. results[k].season .. "<reset> Daylight : <light_slate_blue>" .. results[k].daylight .. "<reset>")
-        cecho("\n<gray>Short  : <CornflowerBlue>" .. results[k].short .. "<reset>")
-        cecho("\n<gray>" .. results[k].exits .. "<reset>\n")
+        cecho("\n<white>" .. results[k].created_on .. " <gray>S/D: <light_slate_blue>" .. results[k].season .. " / " .. results[k].daylight .. "<reset>")
+        cecho("\n  <CornflowerBlue>" .. results[k].short .. "<reset>")
+        cecho("\n  <green>" .. results[k].exits .. "<reset>")
     end
+    echo("\n")
 end
 function arkadia_findme:createInfoAlias()
     fmInfo = tempAlias("^/rinfo$", [[arkadia_findme:show_room()]])
@@ -300,6 +301,33 @@ function arkadia_findme:findme()
     if #results == 1 then
         amap:set_position(results[1].room_id, true)
         return true
+    end
+
+    -- depth 5 : guess the nearest, RSE
+    -- ((( depth 1.1 : match distinct by short + exits, within the mudlet map region )))
+    local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, exits, region from locations where short = \"" .. amap.localization.current_short .. "\" and exits = \"" .. amap.localization.current_exit .. "\" and region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)] .. "\"")
+    arkadia_findme:debug_print("D5.1: -RSE : <red>" .. #results .. " ")
+    if #results > 1 then
+        local nearest = 100000
+        local nearest_room_id = 0
+        for k, v in pairs(results) do
+            echo(results[k].room_id)
+            if getPath(amap.curr.id, results[k].room_id) then
+                local distance = table.getn(speedWalkDir)
+                if distance < nearest then
+                    nearest = distance
+                    nearest_room_id = results[k].room_id
+                end
+                echo("->"..distance.." ")
+            else
+                echo("->N/A ")
+            end
+        end
+        if nearest_room_id then
+            cecho("<green>"..nearest_room_id.." ")
+            amap:set_position(nearest_room_id, true)
+            return true
+        end
     end
 end
 
