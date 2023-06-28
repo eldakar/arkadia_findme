@@ -204,6 +204,9 @@ end
 -- short - amap.localization.current_short
 -- exits - amap.localization.current_exit
 function arkadia_findme:findme()
+    if gmcp.room.time.season == nil then
+        return false
+    end
     -- depth negative : sanity check 
     -- depth 1.1 : match distinct by short + exits, within the mudlet map region
     local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, exits, region from locations where short = \"" .. amap.localization.current_short .. "\" and exits = \"" .. amap.localization.current_exit .. "\" and region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)] .. "\" and room_id = " .. amap.curr.id)
@@ -344,6 +347,17 @@ function arkadia_findme:createWrocAlias()
         cecho("\n<CadetBlue>(skrypty):<green>(findme) OK, cofam.\n")
         amap:set_position(arkadia_findme.pre_zlok_room, true)
     ]])
+end
+
+-- FIX
+function amap:locate_on_next_location(skip_db)
+    cecho("\n<red>NIC NIE ROBIE<reset>")
+end
+function map_sync_gps_first_line_match(room_id, room_gps_id, line_delta, area_name)
+    cecho("\n<red>NIC NIE ROBIE<reset>")
+end
+function map_sync_gps_subsequent_line_check_match(room_id, room_gps_id)
+    cecho("\n<red>NIC NIE ROBIE<reset>")
 end
 
 function amap:locate(noprint, skip_db)
