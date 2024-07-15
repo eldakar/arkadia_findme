@@ -210,7 +210,7 @@ function arkadia_findme:findme()
     if gmcp.room.time.season == nil then
         return false
     end
-    
+
     arkadia_findme.pre_zlok_room = amap.curr.id
     
     -- depth negative : sanity check 
@@ -302,9 +302,8 @@ function arkadia_findme:findme()
     end    
 
     -- depth 4 : match by short only :)
-    local results = db:fetch(self.mydb.locations, db:AND(
-        db:eq(self.mydb.locations.short, amap.localization.current_short)
-    ))
+    local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short from locations where short = \"" .. amap.localization.current_short .. "\"")
+    --local results = db:fetch(self.mydb.locations, db:AND(db:eq(self.mydb.locations.short, amap.localization.current_short)))
 
     arkadia_findme:debug_print("D4  : --S- : <red>" .. #results .. " ")
     if #results == 1 then
