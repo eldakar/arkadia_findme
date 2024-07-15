@@ -219,7 +219,7 @@ function arkadia_findme:findme()
 
     arkadia_findme:debug_print("----: ROOM : <red>" .. #results .. " ")
     if #results == 1 then
-        --amap:set_position(results[1].room_id, true)
+        amap:set_position(results[1].room_id, true)
         return true
     end
 
