@@ -210,6 +210,9 @@ function arkadia_findme:findme()
     if gmcp.room.time.season == nil then
         return false
     end
+    
+    arkadia_findme.pre_zlok_room = amap.curr.id
+    
     -- depth negative : sanity check 
     -- depth 1.1 : match distinct by short + exits, within the mudlet map region
     local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, exits, region from locations where short = \"" .. amap.localization.current_short .. "\" and exits = \"" .. amap.localization.current_exit .. "\" and region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)] .. "\" and room_id = " .. amap.curr.id)
