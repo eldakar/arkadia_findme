@@ -2,7 +2,10 @@ arkadia_findme = arkadia_findme or {
     state = {},
     handler_data = nil,
     pre_zlok_room = 0,
-    mydb = nil
+    mydb = nil,
+    contributorsUrl = 'https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main/contributors.txt',
+    contributorsFile = "/findmelocations_contributors.txt",
+    contributorsDBs = {}
 }
 --findme.highlight_current_room
 --findme.search_depth
@@ -21,7 +24,7 @@ function arkadia_findme:createHelpAlias()
         cecho("<gray>|  <yellow>Aliasy                                                    <gray>|<reset>\n")
         cecho("<gray>|  <white>/findme<reset> - ta pomoc                                        |<reset>\n")
         cecho("<gray>|  <white>/rinfo<reset>  - wyswietla stan opisania pokoju                  |<reset>\n")
-        cecho("<gray>|  <green>/zlok<reset>   - podmieniony alias mudleta, korzysta z tej bazy  |<reset>\n")
+        cecho("<gray>|  <green>/zlok2<reset>  - ALIAS DO WYSZUKIWANIA - korzysta z tej bazy     |<reset>\n")
         cecho("<gray>|  <green>/wroc<reset>   - cofa mapke do lokacji w ktorej uzylismy /zlok   |<reset>\n")
         cecho("<gray>|  <red>/radd<reset>   - dodaje opis pokoju do bazy, nadpisuje poprzedni |<reset>\n")
         cecho("<gray>|  <red>/rwipe<reset>  - usuwa wszystkie wpisy pokoju                    |<reset>\n")
@@ -350,63 +353,93 @@ function arkadia_findme:createWrocAlias()
 end
 
 -- FIX
-function amap:locate_on_next_location(skip_db)
-    cecho("\n<red>NIC NIE ROBIE<reset>")
-end
-function map_sync_gps_first_line_match(room_id, room_gps_id, line_delta, area_name)
-    cecho("\n<red>NIC NIE ROBIE<reset>")
-end
-function map_sync_gps_subsequent_line_check_match(room_id, room_gps_id)
-    cecho("\n<red>NIC NIE ROBIE<reset>")
-end
+--function amap:locate_on_next_location(skip_db)
+    --cecho("\n<red>NIC NIE ROBIE<reset>")
+--    return
+--end
+--function map_sync_gps_first_line_match(room_id, room_gps_id, line_delta, area_name)
+    --cecho("\n<red>NIC NIE ROBIE<reset>")
+--    return
+--end
+--function map_sync_gps_subsequent_line_check_match(room_id, room_gps_id)
+    --cecho("\n<red>NIC NIE ROBIE<reset>")
+--    return
+--end
 
-function amap:locate(noprint, skip_db)
-    amap.history = get_new_list()
-    local tmp_loc = amap:extract_gmcp()
+--function amap:locate(noprint, skip_db)
+    --amap.history = get_new_list()
+--    local tmp_loc = amap:extract_gmcp()
 
-    local msg = nil
-    local ret = false
+    --local msg = nil
+    --local ret = false
 
-    arkadia_findme.pre_zlok_room = amap.curr.id
+    --arkadia_findme.pre_zlok_room = amap.curr.id
     -- immediately clear next dir bind
-    amap.next_dir_bind = nil
+    --amap.next_dir_bind = nil
 
-    if tmp_loc.x then
-        local curr_id = not amap.legacy_locate and amap:get_room_by_hash(tmp_loc.x, tmp_loc.y, tmp_loc.z, tmp_loc.area) or amap:room_exist(tmp_loc.x, tmp_loc.y, tmp_loc.z, tmp_loc.area)
-        if curr_id and curr_id > 0 then
-            amap.curr.id = curr_id
-            amap.curr.x = tmp_loc.x
-            amap.curr.y = tmp_loc.y
-            amap.curr.z = tmp_loc.z
-            amap.curr.area = tmp_loc.area
-            amap:copy_loc(amap.prev, amap.curr)
-            centerview(curr_id)
-            raiseEvent("amapNewLocation", amap.curr.id)
-            amap_ui_set_dirs_trigger(getRoomExits(amap.curr.id))
-            amap:follow_mode()
-            msg = "Ok, jestes zlokalizowany po GMCP"
-            ret = true
-        else
-            msg = "Nie moge Cie zlokalizowac na podstawie tych koordynatow (prawdopodobnie lokacja z tymi koordynatami nie istnieje)"
-        end
+    --if tmp_loc.x then
+      --  local curr_id = not amap.legacy_locate and amap:get_room_by_hash(tmp_loc.x, tmp_loc.y, tmp_loc.z, tmp_loc.area) or amap:room_exist(tmp_loc.x, tmp_loc.y, tmp_loc.z, tmp_loc.area)
+        --if curr_id and curr_id > 0 then
+          --  amap.curr.id = curr_id
+--            amap.curr.x = tmp_loc.x
+  --          amap.curr.y = tmp_loc.y
+    --        amap.curr.z = tmp_loc.z
+      --      amap.curr.area = tmp_loc.area
+--            amap:copy_loc(amap.prev, amap.curr)
+  --          centerview(curr_id)
+    --        raiseEvent("amapNewLocation", amap.curr.id)
+      --      amap_ui_set_dirs_trigger(getRoomExits(amap.curr.id))
+--            amap:follow_mode()
+  --          msg = "Ok, jestes zlokalizowany po GMCP"
+    --        ret = true
+      --  else
+        --    msg = "Nie moge Cie zlokalizowac na podstawie tych koordynatow (prawdopodobnie lokacja z tymi koordynatami nie istnieje)"
+        --end
+--    else
+  --      if arkadia_findme:findme() then
+    --        msg = "<green>(findme) Zlokalizowalem.<reset>"
+      --      ret = true            
+        --elseif not skip_db and amap.localization:try_to_locate() then
+--            msg = "<yellow>Zlokalizowalem po opisie lokacji i wyjsciach.<reset>"
+  --          ret = true
+    --    else
+      --      msg = "GMCP nie zawiera koordynatow, nie moge cie zlokalizowac na mapie"
+        --end
+--    end
+
+--    if not noprint then
+  --      amap:print_log(msg)
+    --end
+
+--    return ret
+--end
+
+
+function arkadia_findme:download()
+    amap:print_log("<green>(findme) <yellow>Sciagam liste kontrybutorow...<reset>")
+    downloadFile(getMudletHomeDir().."/findmelocations_contributors.txt",'https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main/contributors.txt')
+
+    local file_handle = io.open(getMudletHomeDir().."/findmelocations_contributors.txt")
+    local file_content = file_handle:read("*all")
+    local contributors_table = string.split(file_content, "\n")
+    if table.size(contributors_table) > 1 then
+        table.remove(contributors_table, table.size(contributors_table))
     else
-        if arkadia_findme:findme() then
-            msg = "<green>(findme) Zlokalizowalem.<reset>"
-            ret = true            
-        elseif not skip_db and amap.localization:try_to_locate() then
-            msg = "<yellow>Zlokalizowalem po opisie lokacji i wyjsciach.<reset>"
-            ret = true
+        amap:print_log("<green>(findme) <red>Lista kontrybutorow jest pusta :(<reset>")
+        return
+    end
+
+    for k, v in pairs(contributors_table) do
+        if arkadia_findme.contributor == v then
+            amap:print_log("<green>(findme) <yellow>Contributor <red>" .. v .. " <yellow>recognized... skipping...")
         else
-            msg = "GMCP nie zawiera koordynatow, nie moge cie zlokalizowac na mapie"
+            amap:print_log("<green>(findme) <yellow>Contributor <green>" .. v .. " <yellow>found, downloading!")
+            downloadFile(getMudletHomeDir().."/Database_findmelocations".. v ..".db", "https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main".."/Database_findmelocations".. v ..".db")
+            self.contributorsDBs[v] = db:get_database("findmelocations".. v .. ".db")
         end
     end
-
-    if not noprint then
-        amap:print_log(msg)
-    end
-
-    return ret
 end
+
 
 -- room_id - amap.curr.id
 -- region - getAreaTableSwap()[getRoomArea(14608)]
@@ -420,6 +453,7 @@ function arkadia_findme:init()
     arkadia_findme:createZlokAlias()
     arkadia_findme:createWipeAlias()
     arkadia_findme:createInfoAlias()
+    arkadia_findme:createWrocAlias()
     arkadia_findme:createAddAlias()
     db:create("findmelocations", {
         locations={
