@@ -225,7 +225,6 @@ function arkadia_findme:findme()
 
     -- depth 0 : exact match
     local results = db:fetch(self.mydb.locations, db:AND(
-        db:eq(self.mydb.locations.season, gmcp.room.time.season),
         db:eq(self.mydb.locations.daylight, tostring(gmcp.room.time.daylight)),
         db:eq(self.mydb.locations.short, amap.localization.current_short),
         db:eq(self.mydb.locations.exits, amap.localization.current_exit)
