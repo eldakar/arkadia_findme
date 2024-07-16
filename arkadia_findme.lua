@@ -137,7 +137,7 @@ function arkadia_findme:add()
             short=amap.localization.current_short,
             exits=amap.localization.current_exit,
             created_on=os.date("%c"),
-            created_by=gmcp.char.info["name"]
+            created_by=gmcp.char.info.name
         })
         db:add(self.contributordb.locations, {
             room_id=amap.curr.id,
@@ -150,7 +150,7 @@ function arkadia_findme:add()
             short=amap.localization.current_short,
             exits=amap.localization.current_exit,
             created_on=os.date("%c"),
-            created_by=gmcp.char.info["name"]
+            created_by=gmcp.char.info.name
         })
 
         cecho("\n<CadetBlue>(skrypty)<tomato>: Dodalem lokacje GMCP!\n")
@@ -167,7 +167,7 @@ function arkadia_findme:add()
             short=amap.localization.current_short,
             exits=amap.localization.current_exit,
             created_on=os.date("%c"),
-            created_by=gmcp.char.info["name"]
+            created_by=gmcp.char.info.name
         })
         db:add(self.contributordb.locations, {
             room_id=amap.curr.id,
@@ -180,7 +180,7 @@ function arkadia_findme:add()
             short=amap.localization.current_short,
             exits=amap.localization.current_exit,
             created_on=os.date("%c"),
-            created_by=gmcp.char.info["name"]
+            created_by=gmcp.char.info.name
         })
 
         cecho("\n<CadetBlue>(skrypty)<tomato>: Dodalem lokacje bez GMCP!\n")
@@ -690,8 +690,8 @@ end
 -- exits - amap.localization.current_exit
 function arkadia_findme:start()
     if arkadia_findme.contributor_name == "" or not arkadia_findme.contributor_name then
-        self:debug_print("<reset>(loader) Pierwsze uruchomienie > ustawiam nazwe bazy jako <magenta>Database_findmelocations<yellow>" .. gmcp.char.info[name] .. "<magenta>.db")
-        arkadia_findme.contributor_name = gmcp.char.info[name]
+        self:debug_print("<reset>(loader) Pierwsze uruchomienie > ustawiam nazwe bazy jako <magenta>Database_findmelocations<yellow>" .. gmcp.char.info.name .. "<magenta>.db")
+        arkadia_findme.contributor_name = gmcp.char.info.name
     end
 
     self:debug_print("<reset>(loader) Inicjuje modul <magenta>findme<reset> dla kontrybutora <magenta>" .. arkadia_findme.contributor_name)
