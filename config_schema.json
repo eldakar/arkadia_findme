@@ -19,6 +19,12 @@
             "default_value": false,
             "field_type": "boolean",
             "macros_on_modify": []
+        },
+        {
+            "name": "arkadia_findme.contributor_name",
+            "default_value": "",
+            "field_type": "string",
+            "macros_on_modify": []
         }
     ]
 }
