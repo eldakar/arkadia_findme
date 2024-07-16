@@ -1,10 +1,13 @@
 arkadia_findme = arkadia_findme or {
     state = {},
     handler_data = nil,
+    loader_data = nil,
     pre_zlok_room = 0,
     mydb = nil,
+    contributordb = nil,
     contributorsUrl = 'https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main/contributors.txt',
     contributorsFile = "/findmelocations_contributors.txt",
+    contributorsList = {},
     contributorsDBs = {}
 }
 --findme.highlight_current_room
@@ -29,6 +32,9 @@ function arkadia_findme:createHelpAlias()
         cecho("<gray>|  <red>/radd<reset>   - dodaje opis pokoju do bazy, nadpisuje poprzedni |<reset>\n")
         cecho("<gray>|  <red>/rwipe<reset>  - usuwa wszystkie wpisy pokoju                    |<reset>\n")
         cecho("<gray>|                                                            |<reset>\n")
+        cecho("<gray>|  <tomato>/rupdate<reset> - sciaga bazy kontrybutorow                      |<reset>\n")
+        cecho("<gray>|   uwaga - uzywac w bezpiecznym miejscu - wymaga restartu   |<reset>\n")
+        cecho("<gray>|                                                            |<reset>\n")
         cecho("<gray>|  <yellow>Opcje                                                     <gray>|<reset>\n")
         cecho("<gray>|  <light_slate_blue>arkadia_findme.highlight_current_room = true/false        <reset>|<reset>\n")
         cecho("<gray>|            czy kolorowac stan zapisu pokoju na mapce       |<reset>\n")
@@ -41,6 +47,9 @@ function arkadia_findme:createHelpAlias()
         cecho("<gray>|            4 - short                                       |<reset>\n")
         cecho("<gray>|  <light_slate_blue>arkadia_findme.debug_enabled = true/false                 <reset>|<reset>\n")
         cecho("<gray>|            wyswietlaj liczbe wynikow dla kazdego poziomu   |<reset>\n")
+        cecho("<gray>|  <light_slate_blue>arkadia_findme.contributor_name = nick                    <reset>|<reset>\n")
+        cecho("<gray>|            ustaw nazwe, pod ktora beda sie zapisywac twoje |<reset>\n")
+        cecho("<gray>|            lokacje.                                        |<reset>\n")
         cecho("<gray>+------------------------------------------------------------+<reset>\n")
     ]])
 end
@@ -56,6 +65,10 @@ function arkadia_findme:wipe_room()
         local results = db:delete(self.mydb.locations, db:AND(
             db:eq(self.mydb.locations.room_id, amap.curr.id)
         ))
+        local results = db:delete(self.contributordb.locations, db:AND(
+            db:eq(self.contributordb.locations.room_id, amap.curr.id)
+        ))
+
         return true
     end
     return false
@@ -99,6 +112,12 @@ function arkadia_findme:add()
             db:eq(self.mydb.locations.season, gmcp.room.time.season),
             db:eq(self.mydb.locations.daylight, tostring(gmcp.room.time.daylight))
         ))
+        local results = db:delete(self.contributordb.locations, db:AND(
+            db:eq(self.contributordb.locations.room_id, amap.curr.id),
+            db:eq(self.contributordb.locations.season, gmcp.room.time.season),
+            db:eq(self.contributordb.locations.daylight, tostring(gmcp.room.time.daylight))
+        ))
+
     end
 
     if amap.localization.current_exit == "" then
@@ -118,8 +137,22 @@ function arkadia_findme:add()
             short=amap.localization.current_short,
             exits=amap.localization.current_exit,
             created_on=os.date("%c"),
-            created_by=ateam.options.own_name
+            created_by=gmcp.char.info["name"]
         })
+        db:add(self.contributordb.locations, {
+            room_id=amap.curr.id,
+            region=getAreaTableSwap()[getRoomArea(amap.curr.id)],
+            area=gmcp.room.info.map.name,
+            x=gmcp.room.info.map.x,
+            y=gmcp.room.info.map.y,
+            daylight=tostring(gmcp.room.time.daylight),
+            season=gmcp.room.time.season,
+            short=amap.localization.current_short,
+            exits=amap.localization.current_exit,
+            created_on=os.date("%c"),
+            created_by=gmcp.char.info["name"]
+        })
+
         cecho("\n<CadetBlue>(skrypty)<tomato>: Dodalem lokacje GMCP!\n")
         arkadia_findme:set_location_color()
     else
@@ -134,8 +167,22 @@ function arkadia_findme:add()
             short=amap.localization.current_short,
             exits=amap.localization.current_exit,
             created_on=os.date("%c"),
-            created_by=ateam.options.own_name
+            created_by=gmcp.char.info["name"]
         })
+        db:add(self.contributordb.locations, {
+            room_id=amap.curr.id,
+            region=getAreaTableSwap()[getRoomArea(amap.curr.id)],
+            area="",
+            x="",
+            y="",
+            daylight=tostring(gmcp.room.time.daylight),
+            season=gmcp.room.time.season,
+            short=amap.localization.current_short,
+            exits=amap.localization.current_exit,
+            created_on=os.date("%c"),
+            created_by=gmcp.char.info["name"]
+        })
+
         cecho("\n<CadetBlue>(skrypty)<tomato>: Dodalem lokacje bez GMCP!\n")
         arkadia_findme:set_location_color()
     end
@@ -353,6 +400,13 @@ function arkadia_findme:createWrocAlias()
     ]])
 end
 
+function arkadia_findme:createUpdateAlias()
+    fmZlok = tempAlias("^/rupdate$", [[
+        arkadia_findme:update()
+    ]])
+end
+
+
 -- FIX
 --function amap:locate_on_next_location(skip_db)
     --cecho("\n<red>NIC NIE ROBIE<reset>")
@@ -416,30 +470,215 @@ end
 --end
 
 
-function arkadia_findme:download()
-    amap:print_log("<green>(findme) <yellow>Sciagam liste kontrybutorow...<reset>")
+-- downloader functions
+-- step 1
+function arkadia_findme:downloader_clean_reference()
+    -- delete all the old files
+    self:debug_print("<reset>(loader) Usuwam liste kontrybutorow")
+    os.remove(getMudletHomeDir().."/findmelocations_contributors.txt")
+end
+-- step 2
+function arkadia_findme:downloader_get_reference()
+    self:debug_print("<reset>(loader) Pobieram liste kontrybutorow")
     downloadFile(getMudletHomeDir().."/findmelocations_contributors.txt",'https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main/contributors.txt')
-
+end
+-- step 3
+function arkadia_findme:downloader_parse_reference()
     local file_handle = io.open(getMudletHomeDir().."/findmelocations_contributors.txt")
     local file_content = file_handle:read("*all")
     local contributors_table = string.split(file_content, "\n")
     if table.size(contributors_table) > 1 then
         table.remove(contributors_table, table.size(contributors_table))
     else
-        amap:print_log("<green>(findme) <red>Lista kontrybutorow jest pusta :(<reset>")
-        return
+        self:debug_print("<reset>(loader) Lista kontrybutorow <red>jest pusta!<reset>")
+        return false
     end
-
-    for k, v in pairs(contributors_table) do
-        if arkadia_findme.contributor == v then
-            amap:print_log("<green>(findme) <yellow>Contributor <red>" .. v .. " <yellow>recognized... skipping...")
-        else
-            amap:print_log("<green>(findme) <yellow>Contributor <green>" .. v .. " <yellow>found, downloading!")
-            downloadFile(getMudletHomeDir().."/Database_findmelocations".. v ..".db", "https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main".."/Database_findmelocations".. v ..".db")
-            self.contributorsDBs[v] = db:get_database("findmelocations".. v .. ".db")
+    self.contributorsList = contributors_table
+    return true
+end
+-- step 4
+function arkadia_findme:downloader_clean_databases()
+    for k, v in pairs(self.contributorsList) do
+        --if arkadia_findme.contributor == v then
+        if arkadia_findme.contributor_name ~= v then
+            self:debug_print("<reset>(loader) Usuwam plik: Database_findmelocations<yellow>"..v.."<reset>.db")
+            os.remove(getMudletHomeDir().."/Database_findmelocations".. v ..".db")
         end
     end
 end
+
+-- step 5
+function arkadia_findme:downloader_get_databases()
+    for k, v in pairs(self.contributorsList) do
+        if arkadia_findme.contributor_name ~= v then
+            self:debug_print("<reset>(loader) Sciagam plik: Database_findmelocations<green>"..v.."<reset>.db")
+            downloadFile(getMudletHomeDir().."/Database_findmelocations".. v ..".db", "https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main".."/Database_findmelocations".. v ..".db")
+        end
+    end
+end
+
+-- step 6
+function arkadia_findme:downloader_erase_masterdb()
+    self:debug_print("<reset>(loader) Zeruje plik zbiorczy: <yellow>Database_findmelocations.db")
+    db:close("findmelocations")
+    os.remove(getMudletHomeDir().."/Database_findmelocations.db")
+    db:create("findmelocations", {
+        locations={
+            "room_id",
+            "region",
+            "area",
+            "x",
+            "y",
+            "daylight",
+            "season",
+            "short",
+            "exits",
+            "created_on",
+            "created_by"
+        }})
+    self.mydb = db:get_database("findmelocations")
+    self:debug_print("<reset>(loader) Spajam bazy, moze to potrwac do 30 sekund...")
+end
+
+-- step 7
+function arkadia_findme:downloader_open_databases()
+    local isCharContributor = false
+    for k, v in pairs(self.contributorsList) do
+        if v == arkadia_findme.contributor_name then
+            isCharContributor = true
+        end
+
+        db:create("findmelocations" .. v, {
+            locations={
+                "room_id",
+                "region",
+                "area",
+                "x",
+                "y",
+                "daylight",
+                "season",
+                "short",
+                "exits",
+                "created_on",
+                "created_by"
+            }})
+        local tmpdb = db:get_database("findmelocations" .. v)
+        local results = db:fetch_sql(tmpdb.locations, "select * from locations")
+        local integrated = 0
+
+        for kk, vv in pairs(results) do
+--TODO      
+            local _results = db:fetch(self.mydb.locations, db:AND(
+                db:eq(self.mydb.locations.daylight, vv.daylight),
+                db:eq(self.mydb.locations.short, vv.short),
+                db:eq(self.mydb.locations.exits, vv.exits),
+                db:eq(self.mydb.locations.room_id, vv.room_id),
+                db:eq(self.mydb.locations.season, vv.season),
+                db:eq(self.mydb.locations.area, vv.area)
+            ))
+
+            if #_results == 0 then
+                db:add(self.mydb.locations, {
+                    room_id=vv.room_id,
+                    region=vv.region,
+                    area=vv.area,
+                    x=vv.x,
+                    y=vv.y,
+                    daylight=vv.daylight,
+                    season=vv.season,
+                    short=vv.short,
+                    exits=vv.exits,
+                    created_on=vv.created_on,
+                    created_by=vv.created_by
+                })
+                integrated = integrated + 1
+            end
+--TODO
+        end
+
+        self:debug_print("<reset> Baza: <yellow>" .. v .. "<reset> - zintegrowano <green>" .. integrated.. "<reset>/" .. #results)
+        --db:close("findmelocations" .. v)
+
+    end
+
+    if not isCharContributor then
+        db:create("findmelocations" .. self.contributor_name, {
+            locations={
+                "room_id",
+                "region",
+                "area",
+                "x",
+                "y",
+                "daylight",
+                "season",
+                "short",
+                "exits",
+                "created_on",
+                "created_by"
+            }})
+
+        local tmpdb = db:get_database("findmelocations" .. self.contributor_name)
+        local results = db:fetch_sql(tmpdb.locations, "select * from locations")
+        local integrated = 0
+
+        for kk, vv in pairs(results) do
+--TODO      
+            local _results = db:fetch(self.mydb.locations, db:AND(
+                db:eq(self.mydb.locations.daylight, vv.daylight),
+                db:eq(self.mydb.locations.short, vv.short),
+                db:eq(self.mydb.locations.exits, vv.exits),
+                db:eq(self.mydb.locations.room_id, vv.room_id),
+                db:eq(self.mydb.locations.season, vv.season),
+                db:eq(self.mydb.locations.area, vv.area)
+            ))
+
+            if #_results == 0 then
+                db:add(self.mydb.locations, {
+                    room_id=vv.room_id,
+                    region=vv.region,
+                    area=vv.area,
+                    x=vv.x,
+                    y=vv.y,
+                    daylight=vv.daylight,
+                    season=vv.season,
+                    short=vv.short,
+                    exits=vv.exits,
+                    created_on=vv.created_on,
+                    created_by=vv.created_by
+                })
+                integrated = integrated + 1
+            end
+--TODO
+        end
+
+        self:debug_print("<reset> Baza: <magenta>" .. self.contributor_name .. "<reset> - zintegrowano <green>" .. integrated.. "<reset>/" .. #results)
+
+    end
+
+
+
+    self:debug_print("<reset>(loader) NALEZY ZRESTARTOWAC MUDLET!!!")
+end
+
+
+
+function arkadia_findme:update()
+    if arkadia_findme.contributor_name == "" or not arkadia_findme.contributor_name then
+        self:debug_print("<reset>Blad przy inicjacji. Musisz pierw ustawic <red>/cset=arkadia_findme.contributor_name=twojnick")
+        return
+    end
+
+    tempTimer(0, function() self:downloader_clean_reference() end)
+    tempTimer(2, function() self:downloader_get_reference() end)
+    tempTimer(4, function() self:downloader_parse_reference() end)
+    tempTimer(4.5, function() self:downloader_clean_databases() end)
+    tempTimer(6, function() self:downloader_get_databases() end)
+    tempTimer(8, function() self:downloader_erase_masterdb() end)
+    tempTimer(9, function() self:downloader_open_databases() end)
+end
+--self.contributorsDBs[k] = db:get_database("findmelocations".. v)
+
+
 
 
 -- room_id - amap.curr.id
@@ -449,13 +688,37 @@ end
 -- season - gmcp.room.time.season (0,1,2,3)
 -- short - amap.localization.current_short
 -- exits - amap.localization.current_exit
-function arkadia_findme:init()
+function arkadia_findme:start()
+    if arkadia_findme.contributor_name == "" or not arkadia_findme.contributor_name then
+        self:debug_print("<reset>(loader) Pierwsze uruchomienie > ustawiam nazwe bazy jako <magenta>Database_findmelocations<yellow>" .. gmcp.char.info[name] .. "<magenta>.db")
+        arkadia_findme.contributor_name = gmcp.char.info[name]
+    end
+
+    self:debug_print("<reset>(loader) Inicjuje modul <magenta>findme<reset> dla kontrybutora <magenta>" .. arkadia_findme.contributor_name)
     arkadia_findme:createHelpAlias()
     arkadia_findme:createZlokAlias()
     arkadia_findme:createWipeAlias()
     arkadia_findme:createInfoAlias()
     arkadia_findme:createWrocAlias()
     arkadia_findme:createAddAlias()
+    arkadia_findme:createUpdateAlias()
+
+    db:create("findmelocations" .. arkadia_findme.contributor_name, {
+        locations={
+            "room_id",
+            "region",
+            "area",
+            "x",
+            "y",
+            "daylight",
+            "season",
+            "short",
+            "exits",
+            "created_on",
+            "created_by"
+        }})
+    self.contributordb = db:get_database("findmelocations" .. arkadia_findme.contributor_name)
+
     db:create("findmelocations", {
         locations={
             "room_id",
@@ -473,6 +736,13 @@ function arkadia_findme:init()
     self.mydb = db:get_database("findmelocations")
 
     self.handler_data  = scripts.event_register:register_singleton_event_handler(self.handler_data, "amapCompassDrawingDone", function() self:set_location_color() end)
+end
+
+--profileLoaded
+-- loginSuccessful
+
+function arkadia_findme:init()
+    self.loader_data  = scripts.event_register:register_singleton_event_handler(self.loader_data, "profileLoaded", function() self:start() end)
 end
 
 arkadia_findme:init()
