@@ -8,7 +8,8 @@ arkadia_findme = arkadia_findme or {
     contributorsUrl = 'https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main/contributors.txt',
     contributorsFile = "/findmelocations_contributors.txt",
     contributorsList = {},
-    contributorsDBs = {}
+    contributorsDBs = {},
+    coloring = false
 }
 --findme.highlight_current_room
 --findme.search_depth
@@ -27,8 +28,10 @@ function arkadia_findme:createHelpAlias()
         cecho("<gray>|  <yellow>Aliasy                                                    <gray>|<reset>\n")
         cecho("<gray>|  <white>/findme<reset> - ta pomoc                                        |<reset>\n")
         cecho("<gray>|  <white>/rinfo<reset>  - wyswietla stan opisania pokoju                  |<reset>\n")
-        cecho("<gray>|  <green>/zlok2<reset>  - ALIAS DO WYSZUKIWANIA - korzysta z tej bazy     |<reset>\n")
-        cecho("<gray>|  <green>/wroc<reset>   - cofa mapke do lokacji w ktorej uzylismy /zlok   |<reset>\n")
+        cecho("<gray>|  <white>/rheat<reset>  - toggle podswietlania zmapowanych pol            |<reset>\n")
+        cecho("<gray>|  <white>/rrank<reset>  - ranking kontrybutorow                           |<reset>\n")
+        cecho("<gray>| *<green>/zlok2<reset>  - ALIAS DO WYSZUKIWANIA - korzysta z tej bazy     |<reset>\n")
+        cecho("<gray>| *<green>/wroc<reset>   - cofa mapke do lokacji w ktorej uzylismy /zlok   |<reset>\n")
         cecho("<gray>|  <red>/radd<reset>   - dodaje opis pokoju do bazy, nadpisuje poprzedni |<reset>\n")
         cecho("<gray>|  <red>/radd!<reset>  - forsuje dodanie pokoju bez widocznych wyjsc     |<reset>\n")
         cecho("<gray>|  <red>/rwipe<reset>  - usuwa wszystkie wpisy pokoju                    |<reset>\n")
@@ -62,6 +65,71 @@ function arkadia_findme:show_ranking()
             self:debug_print("<tomato>" .. results[k].created_by .. " <magenta>" .. #_results)
     end
 end
+
+function arkadia_findme:toggle_heatmap()
+    if arkadia_findme.coloring then
+        arkadia_findme:hide_heatmap()
+        arkadia_findme.coloring = false
+    else
+        arkadia_findme:show_heatmap()
+        arkadia_findme.coloring = true
+    end
+end
+
+function arkadia_findme:hide_heatmap()
+    local rooms = getAreaRooms(getRoomArea(amap.curr.id))
+    for k, v in pairs (rooms) do
+        unHighlightRoom(v)
+    end
+end
+
+function arkadia_findme:show_heatmap()
+    local location_color = {
+        [0] = {150, 50, 50, 50, 50, 50, 2.0, 100, 100},     --red
+        [1] = {150, 150, 50, 50, 50, 50, 1.7, 100, 100},    --yellow
+        [2] = {50, 150, 50, 50, 50, 50, 1.9, 100, 100},     --green
+        [3] = {50, 50, 150, 50, 50, 50, 2.0, 100, 100},     --blue
+    }
+    local zone = getRoomArea(amap.curr.id)
+    local rooms = getAreaRooms(zone)
+    local coloredRooms = {}
+    local results = db:fetch_sql(arkadia_findme.mydb.locations, "select * from locations where region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)]  .. "\"")
+
+    for kk, vv in pairs(results) do
+        if vv.daylight == tostring(gmcp.room.time.daylight)
+            and vv.season == tostring(gmcp.room.time.season)
+            and (not coloredRooms[vv.room_id] or coloredRooms[vv.room_id] < 2) then
+            coloredRooms[vv.room_id] = 2
+        elseif not coloredRooms[vv.room_id] then
+            coloredRooms[vv.room_id] = 1
+        end
+--        print("room: " .. vv.room_id .. " kolor: " .. coloredRooms[vv.room_id])
+    end
+
+
+    for k, v in pairs(rooms) do
+        local location_color_value = 0
+        
+        if coloredRooms[tostring(v)] then
+            location_color_value = coloredRooms[tostring(v)]
+        end
+
+        highlightRoom(
+            v,
+            location_color[location_color_value][1],
+            location_color[location_color_value][2],
+            location_color[location_color_value][3],
+            location_color[location_color_value][4],
+            location_color[location_color_value][5],
+            location_color[location_color_value][6],
+            location_color[location_color_value][7],
+            location_color[location_color_value][8],
+            location_color[location_color_value][9]
+        )
+    end
+
+end
+
 
 function arkadia_findme:calculate_distance(room_from, room_to)
     local ret = 0
@@ -206,12 +274,15 @@ end
 -- 1 - some, not current
 -- 2 - current
 -- 3 - gmcp
-function arkadia_findme:get_color()
+function arkadia_findme:get_color(room)
+    if not room then
+        room = amap.curr.id
+    end
     if gmcp.room.info.map then
         return 3
     end
     local results = db:fetch(self.mydb.locations, db:AND(
-        db:eq(self.mydb.locations.room_id, amap.curr.id),
+        db:eq(self.mydb.locations.room_id, room),
         db:eq(self.mydb.locations.season, gmcp.room.time.season),
         db:eq(self.mydb.locations.daylight, tostring(gmcp.room.time.daylight))
     ))
@@ -221,7 +292,7 @@ function arkadia_findme:get_color()
     end
 
     local results = db:fetch(self.mydb.locations, db:AND(
-        db:eq(self.mydb.locations.room_id, amap.curr.id)
+        db:eq(self.mydb.locations.room_id, room)
     ))
 
     if #results >= 1 then
@@ -231,7 +302,10 @@ function arkadia_findme:get_color()
     return 0
 end
 
-function arkadia_findme:set_location_color()
+function arkadia_findme:set_location_color(room)
+    if not room then
+        room = amap.curr.id
+    end
     if arkadia_findme.highlight_current_room then
         local location_color = {
             [0] = {150, 50, 50, 50, 50, 50, 2.0, 100, 100},     --red
@@ -239,10 +313,10 @@ function arkadia_findme:set_location_color()
             [2] = {50, 150, 50, 50, 50, 50, 1.9, 100, 100},     --green
             [3] = {50, 50, 150, 50, 50, 50, 2.0, 100, 100},     --blue
         }
-        local location_color_value = arkadia_findme:get_color()
+        local location_color_value = arkadia_findme:get_color(room)
 
         highlightRoom(
-            amap.curr.id,
+            room,
             location_color[location_color_value][1],
             location_color[location_color_value][2],
             location_color[location_color_value][3],
@@ -415,6 +489,18 @@ end
 function arkadia_findme:createUpdateAlias()
     fmZlok = tempAlias("^/rupdate$", [[
         arkadia_findme:update()
+    ]])
+end
+
+function arkadia_findme:createHeatAlias()
+    fmHeat = tempAlias("^/rheat$", [[
+        arkadia_findme:toggle_heatmap()
+    ]])
+end
+
+function arkadia_findme:createRankAlias()
+    fmRank = tempAlias("^/rrank$", [[
+        arkadia_findme:show_ranking()
     ]])
 end
 
@@ -715,6 +801,8 @@ function arkadia_findme:start()
     arkadia_findme:createAddAlias()
     arkadia_findme:createAddForceAlias()
     arkadia_findme:createUpdateAlias()
+    arkadia_findme:createHeatAlias()
+    arkadia_findme:createRankAlias()
 
     db:create("findmelocations" .. arkadia_findme.contributor_name, {
         locations={
