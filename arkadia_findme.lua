@@ -2,6 +2,7 @@ arkadia_findme = arkadia_findme or {
     state = {},
     handler_data = nil,
     loader_data = nil,
+    handler_roomtime = nil,
     pre_zlok_room = 0,
     mydb = nil,
     contributordb = nil,
@@ -23,7 +24,7 @@ function arkadia_findme:createHelpAlias()
         cecho("<gray>|  - wyszukiwanie lokacji w poblizu zgubienia sie            |<reset>\n")
         cecho("<gray>|  - rozpoznawanie czy postac sie zgubila                    |<reset>\n")
         cecho("<gray>|  - wyswietlanie stanu pokoju na mapce                      |<reset>\n")
-        cecho("<gray>|  - (wylaczone) heatmap opisania regionu                    |<reset>\n")
+        cecho("<gray>|  - heatmap opisania regionu                                |<reset>\n")
         cecho("<gray>|                                                            |<reset>\n")
         cecho("<gray>|  <yellow>Aliasy                                                    <gray>|<reset>\n")
         cecho("<gray>|  <white>/findme<reset> - ta pomoc                                        |<reset>\n")
@@ -61,8 +62,8 @@ end
 function arkadia_findme:show_ranking()
     local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct created_by from locations")
     for k, v in pairs(results) do
-            local _results = db:fetch_sql(arkadia_findme.mydb.locations, "select * from locations where created_by = \"" .. results[k].created_by .. "\"")
-            self:debug_print("<tomato>" .. results[k].created_by .. " <magenta>" .. #_results)
+        local _results = db:fetch_sql(arkadia_findme.mydb.locations, "select * from locations where created_by = \"" .. results[k].created_by .. "\"")
+        self:debug_print("<tomato>" .. results[k].created_by .. " <magenta>" .. #_results)
     end
 end
 
@@ -73,6 +74,12 @@ function arkadia_findme:toggle_heatmap()
     else
         arkadia_findme:show_heatmap()
         arkadia_findme.coloring = true
+    end
+end
+
+function arkadia_findme:refresh_heat()
+    if arkadia_findme.coloring then
+        arkadia_findme:show_heatmap()
     end
 end
 
@@ -103,13 +110,10 @@ function arkadia_findme:show_heatmap()
         elseif not coloredRooms[vv.room_id] then
             coloredRooms[vv.room_id] = 1
         end
---        print("room: " .. vv.room_id .. " kolor: " .. coloredRooms[vv.room_id])
     end
-
 
     for k, v in pairs(rooms) do
         local location_color_value = 0
-        
         if coloredRooms[tostring(v)] then
             location_color_value = coloredRooms[tostring(v)]
         end
@@ -165,9 +169,14 @@ function arkadia_findme:show_room()
 
     cecho("\n<CadetBlue>(skrypty):<green>(findme) Room Info : <yellow>" .. amap.curr.id .. "<reset>")
     for k, v in pairs(results) do
-        cecho("\n<white>" .. results[k].created_on .. "|" .. results[k].created_by .. " <gray>S/D: <light_slate_blue>" .. results[k].season .. " / " .. results[k].daylight .. "<reset>")
-        cecho("\n  <CornflowerBlue>" .. results[k].short .. "<reset>")
-        cecho("\n  <green>" .. results[k].exits .. "<reset>")
+        local tempDay = ""
+        if results[k].daylight == "true" then
+            tempDay = "D"
+        else
+            tempDay = "N"
+        end
+        cecho("\n<white>" .. results[k].created_on .. " <magenta>" .. results[k].created_by .. " <white>" .. results[k].season .. " / " .. tempDay.. " <CornflowerBlue>" .. results[k].short .. "<reset>")
+        cecho("\n<green>" .. results[k].exits .. "<reset>")
     end
     echo("\n")
 end
@@ -505,69 +514,6 @@ function arkadia_findme:createRankAlias()
 end
 
 
--- FIX
---function amap:locate_on_next_location(skip_db)
-    --cecho("\n<red>NIC NIE ROBIE<reset>")
---    return
---end
---function map_sync_gps_first_line_match(room_id, room_gps_id, line_delta, area_name)
-    --cecho("\n<red>NIC NIE ROBIE<reset>")
---    return
---end
---function map_sync_gps_subsequent_line_check_match(room_id, room_gps_id)
-    --cecho("\n<red>NIC NIE ROBIE<reset>")
---    return
---end
-
---function amap:locate(noprint, skip_db)
-    --amap.history = get_new_list()
---    local tmp_loc = amap:extract_gmcp()
-
-    --local msg = nil
-    --local ret = false
-
-    --arkadia_findme.pre_zlok_room = amap.curr.id
-    -- immediately clear next dir bind
-    --amap.next_dir_bind = nil
-
-    --if tmp_loc.x then
-      --  local curr_id = not amap.legacy_locate and amap:get_room_by_hash(tmp_loc.x, tmp_loc.y, tmp_loc.z, tmp_loc.area) or amap:room_exist(tmp_loc.x, tmp_loc.y, tmp_loc.z, tmp_loc.area)
-        --if curr_id and curr_id > 0 then
-          --  amap.curr.id = curr_id
---            amap.curr.x = tmp_loc.x
-  --          amap.curr.y = tmp_loc.y
-    --        amap.curr.z = tmp_loc.z
-      --      amap.curr.area = tmp_loc.area
---            amap:copy_loc(amap.prev, amap.curr)
-  --          centerview(curr_id)
-    --        raiseEvent("amapNewLocation", amap.curr.id)
-      --      amap_ui_set_dirs_trigger(getRoomExits(amap.curr.id))
---            amap:follow_mode()
-  --          msg = "Ok, jestes zlokalizowany po GMCP"
-    --        ret = true
-      --  else
-        --    msg = "Nie moge Cie zlokalizowac na podstawie tych koordynatow (prawdopodobnie lokacja z tymi koordynatami nie istnieje)"
-        --end
---    else
-  --      if arkadia_findme:findme() then
-    --        msg = "<green>(findme) Zlokalizowalem.<reset>"
-      --      ret = true            
-        --elseif not skip_db and amap.localization:try_to_locate() then
---            msg = "<yellow>Zlokalizowalem po opisie lokacji i wyjsciach.<reset>"
-  --          ret = true
-    --    else
-      --      msg = "GMCP nie zawiera koordynatow, nie moge cie zlokalizowac na mapie"
-        --end
---    end
-
---    if not noprint then
-  --      amap:print_log(msg)
-    --end
-
---    return ret
---end
-
-
 -- downloader functions
 -- step 1
 function arkadia_findme:downloader_clean_reference()
@@ -774,10 +720,6 @@ function arkadia_findme:update()
     tempTimer(8, function() self:downloader_erase_masterdb() end)
     tempTimer(9, function() self:downloader_open_databases() end)
 end
---self.contributorsDBs[k] = db:get_database("findmelocations".. v)
-
-
-
 
 -- room_id - amap.curr.id
 -- region - getAreaTableSwap()[getRoomArea(14608)]
@@ -837,10 +779,8 @@ function arkadia_findme:start()
     self.mydb = db:get_database("findmelocations")
 
     self.handler_data  = scripts.event_register:register_singleton_event_handler(self.handler_data, "amapCompassDrawingDone", function() self:set_location_color() end)
+    self.handler_roomtime = scripts.event_register:register_singleton_event_handler(self.handler_roomtime, "gmcp.room.time", function() self:refresh_heat() end)
 end
-
---profileLoaded
--- loginSuccessful
 
 function arkadia_findme:init()
     self.loader_data  = scripts.event_register:register_singleton_event_handler(self.loader_data, "profileLoaded", function() self:start() end)
