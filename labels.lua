@@ -1,5 +1,6 @@
 arkadia_findme.labels = arkadia_findme.labels or {
     state = false,
+    handler_data = nil,
     sortedKeys = {},
     currentitem = 0,
     mydb = nil,
@@ -9,7 +10,9 @@ arkadia_findme.labels = arkadia_findme.labels or {
         previousPathRoomId = 0
     },
     magic_nodes = {},
-    magic_paths = {}
+    magic_paths = {},
+    visited_nodes = {},
+    coloring=false
 }
 
 pointtypes = {
@@ -83,6 +86,10 @@ function arkadia_findme.labels:init()
     self.currentitem = 0
     db:create("trollhunter", {labels={"id","name","type","zone","date","author","description"}})
     self.mydb = db:get_database("trollhunter")
+
+    self.handler_data  = scripts.event_register:register_singleton_event_handler(self.handler_data, "amapCompassDrawingDone", function() self:show_magic() end)
+
+    self:createMagicAlias()
 end
 
 function arkadia_findme.labels:load_magic_nodes()
@@ -100,6 +107,12 @@ function arkadia_findme.labels:load_magic_nodes()
     --arkadia_findme:debug_print("<tomato>Zaladowalem " .. #self.magic_nodes .. " kluczy!")
 end
 
+function arkadia_findme.labels:hide_nodes()
+    for k, v in pairs(self.magic_nodes) do
+        unHighlightRoom(k)
+    end
+end
+
 function arkadia_findme.labels:load_magic_paths()
     if table.size(self.magic_nodes) < 1 then
         --arkadia_findme:debug_print("<tomato>Nie znalazlem zadnych kluczy...")
@@ -113,9 +126,14 @@ function arkadia_findme.labels:load_magic_paths()
         if speedWalkDir and speedWalkDir[1] then
             self.magic_nodes[k] = #speedWalkPath
             --arkadia_findme:debug_print("<tomato>Znalazlem sciezke do <green>" .. v .. " <tomato> w ilosci krokow: <green>" .. #speedWalkDir)
+            if self.magic_nodes[k] < 30 then
                 for kk,vv in pairs(speedWalkPath) do
-                    self.magic_paths[vv] = true
+                    -- dont overwrite nodes with path
+                    if not self.magic_nodes[vv] then
+                        self.magic_paths[vv] = true
+                    end
                 end
+            end
         end
     end
 end
@@ -128,40 +146,42 @@ end
 
 function arkadia_findme.labels:show_magic_paths()
     for k, v in pairs(self.magic_paths) do
-        highlightRoom(k, 155, 0, 155, 200, 0, 200, 2, 70, 200)
+        highlightRoom(k, 155, 0, 155, 155, 0, 155, 2, 70, 200)
     end
 end
 
 function arkadia_findme.labels:show_magic()
-    self:clear_magic_paths()
-    self:load_magic_nodes()
-    self:load_magic_paths()
-    self:show_magic_paths()
-    self:show_all()
+    if self.coloring then
+        self:clear_magic_paths()
+        self:load_magic_nodes()
+        self:load_magic_paths()
+        self:show_magic_paths()
+        self:show_all()
+    end
 end
 
-function arkadia_findme.labels:toggle()
+function arkadia_findme.labels:magic_toggle()
+    if self.coloring then
+        self.coloring=false
+        self:clear_magic_paths()
+        self:hide_nodes()
+    else
+        self.coloring=true
+        self:show_magic()
+    end
+end
+
+function arkadia_findme.labels:createMagicAlias()
+    fmAdd = tempAlias("^/rmagic$", [[arkadia_findme.labels:magic_toggle()]])
 end
 
 function arkadia_findme.labels:show_all()
-    interestPoints = db:fetch(self.mydb.labels)
-    if interestPoints == 0 then
-        return
-    end
-    local t = {}
-    for k, v in pairs(interestPoints) do
-        highlightRoom(
-            interestPoints[k].id,
-            interestPointTypes[interestPoints[k].type].color[1],
-            interestPointTypes[interestPoints[k].type].color[2],
-            interestPointTypes[interestPoints[k].type].color[3],
-            interestPointTypes[interestPoints[k].type].color[4],
-            interestPointTypes[interestPoints[k].type].color[5],
-            interestPointTypes[interestPoints[k].type].color[6],
-            interestPointTypes[interestPoints[k].type].color[7],
-            interestPointTypes[interestPoints[k].type].color[8],
-            interestPointTypes[interestPoints[k].type].color[9]
-        )
+    for k, v in pairs(self.magic_nodes) do
+        if self.magic_nodes[k] < 30 then
+            highlightRoom(k, 155, 0, 155, 155, 0, 155, 25, 10, 200)
+        else
+            highlightRoom(k, 70, 0, 70, 70, 0, 70, 15, 10, 200)
+        end
     end
 end
 
@@ -353,31 +373,3 @@ function arkadia_findme.labels:show(roomid)
 end
 
 arkadia_findme.labels:init()
-
-function arkadia_findme.labels:printHelp()
-    cecho("<gray>+-----------------------------------------------------------------------------------+<reset>\n")
-    cecho("<gray>|                                                                                   |<reset>\n")
-    cecho("<gray>|  Etykietki lokacji na mapie                                                       |<reset>\n")
-    cecho("<gray>|                                                                                   |<reset>\n")
-    cecho("<gray>|  OBSLUGA                                                                          |<reset>\n")
-    cecho("<gray>|                                                                                   |<reset>\n")    
-    cecho("<gray>| /lab_help                      - ta pomoc                                         |<reset>\n")
-    cecho("<gray>| /lab_poi                       - migracja etykiet z bazy POI (wystarczy raz)      |<reset>\n")
-    cecho("<gray>| <green>/lab_next<gray>                      - ustawia lazik do nastepnej WIDOCZNEJ etykiety    |<reset>\n")
-    cecho("<gray>| <green>/lab_walk<gray>                      - bezpieczny lazik (zatrzymuje sie w labiryncie)   |<reset>\n")    
-    cecho("<gray>|                                                                                   |<reset>\n")
-    cecho("<gray>|                                                                                   |<reset>\n")    
-    cecho("<gray>|  EDYCJA                                                                           |<reset>\n")
-    cecho("<gray>|                                                                                   |<reset>\n")
-    cecho("<gray>| /lab [TYP LOKACJI]             - dodaj etykietke na aktualnej lokacji             |<reset>\n")
-    cecho("<gray>|      [TYP LOKACJI]             - kowal, poczta, wiedza, woda, skrzynia, sklep,    |<reset>\n")
-    cecho("<gray>|                                  biblioteka, ekspedycja, klucz, sciezka, safelock |<reset>\n")    
-    cecho("<gray>|      [OPIS] (TODO)             - opcjonalny, wyswietli sie w popup'ie             |<reset>\n")
-    cecho("<gray>|                                                                                   |<reset>\n")
-    cecho("<gray>| Typ lokacji bezposrednio zwiazany jest z jej widocznoscia. Widocznosc to          |<reset>\n")
-    cecho("<gray>| maksymalna ilosc krokow do etykiety, w ktorej bedziemy mogli sie do niej poruszac |<reset>\n")
-    cecho("<gray>| lazikiem, uzywajac komendy /lab_next.                                             |<reset>\n")        
-    cecho("<gray>| Sciezka ma widocznosc 30 krokow, safelock 50, a kowal 8.                          |<reset>\n")
-    cecho("<gray>|                                                                                   |<reset>\n")    
-    cecho("<gray>+-----------------------------------------------------------------------------------+<reset>\n")
-end
