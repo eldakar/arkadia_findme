@@ -12,7 +12,8 @@ arkadia_findme.labels = arkadia_findme.labels or {
     magic_nodes = {},
     magic_paths = {},
     visited_nodes = {},
-    coloring=false
+    coloring=false,
+    party = 1
 }
 
 pointtypes = {
@@ -84,8 +85,8 @@ interestPointTypes = {
 function arkadia_findme.labels:init()
     self.sortedKeys = {}
     self.currentitem = 0
-    db:create("trollhunter", {labels={"id","name","type","zone","date","author","description"}})
-    self.mydb = db:get_database("trollhunter")
+    db:create("magiclabels", {labels={"id","name","type","zone","date","author","description", "partysize"}})
+    self.mydb = db:get_database("magiclabels")
 
     self.handler_data  = scripts.event_register:register_singleton_event_handler(self.handler_data, "amapCompassDrawingDone", function() self:show_magic() end)
 
@@ -94,7 +95,10 @@ end
 
 function arkadia_findme.labels:load_magic_nodes()
     local results = db:fetch(self.mydb.labels, db:AND(
-        db:eq(self.mydb.labels.zone, amap.curr.area), db:eq(self.mydb.labels.type, 9)))
+        db:eq(self.mydb.labels.zone, amap.curr.area),
+        db:eq(self.mydb.labels.type, 9),
+        db:eq(self.mydb.labels.partysize, self.party)
+    ))
     self.magic_nodes = {}
     self.magic_paths = {}
     if #results < 1 then
@@ -185,46 +189,41 @@ function arkadia_findme.labels:show_all()
     end
 end
 
-function arkadia_findme.labels:scan_for_nearby_labels()
-    nearByLabels = {}
-    nearByIndexes = {}
-
-    for k, v in pairs(interestPoints) do
-        getPath(amap.curr.id, interestPoints[k].id)
-        if speedWalkDir and speedWalkDir[1] then
-            if table.getn(speedWalkDir) < interestPointTypes[interestPoints[k].type].visibility then
-                local a = table.insert(nearByLabels, interestPoints[k].id)
-                nearByIndexes[interestPoints[k].id] = k
-            end
-        end
+function arkadia_findme.labels:fix_zones()
+    local results = db:fetch(self.mydb.labels, db:eq(self.mydb.labels.zone, ""))
+    if #results == 0 then
+        arkadia_findme:debug_print("<tomato>Wszystkie regiony naprawione!")
+        return
+    end
+    arkadia_findme:debug_print("<tomato>Naprawiam pokoje bez regionu: " .. #results)
+    for k, v in pairs(results) do
+        results[k].zone = getAreaTableSwap()[getRoomArea(results[k].id)]
+        db:update(self.mydb.labels, results[k])
     end
 end
+
+function arkadia_findme.labels:fix_partysize_imported_dargoth()
+    local results = db:fetch(self.mydb.labels, db:AND(db:eq(self.mydb.labels.partysize, ""), db:eq(self.mydb.labels.date, "")))
+    if #results == 0 then
+        arkadia_findme:debug_print("<tomato>Wszystkie partysize naprawione!")
+        return
+    end
+    arkadia_findme:debug_print("<tomato>Naprawiam pokoje bez partysize: " .. #results)
+    for k, v in pairs(results) do
+        partycounter = 1
+        partystring = results[k].description
+        for i in partystring:gmatch(",") do
+            partycounter = partycounter + 1
+        end
+        results[k].partysize = partycounter
+        db:update(self.mydb.labels, results[k])
+    end
+end
+
+
 
 nearByLabelNext = 1
 
-function arkadia_findme.labels:path_to_next_nearby_label()
-    self:show_zone()
-    self:scan_for_nearby_labels()
-    local n = table.getn(nearByLabels)
-    if n <= nearByLabelNext then
-        nearByLabelNext = 0
-    end
-    nearByLabelNext = nearByLabelNext + 1
-    amap.path_display:start(nearByLabels[nearByLabelNext]);
-    self:show_zone()
-    highlightRoom(nearByLabels[nearByLabelNext], 
-        interestPointTypes[interestPoints[nearByIndexes[nearByLabels[nearByLabelNext]]].type].color[1],
-        interestPointTypes[interestPoints[nearByIndexes[nearByLabels[nearByLabelNext]]].type].color[2],
-        interestPointTypes[interestPoints[nearByIndexes[nearByLabels[nearByLabelNext]]].type].color[3],
-        interestPointTypes[interestPoints[nearByIndexes[nearByLabels[nearByLabelNext]]].type].color[1],
-        interestPointTypes[interestPoints[nearByIndexes[nearByLabels[nearByLabelNext]]].type].color[2],
-        interestPointTypes[interestPoints[nearByIndexes[nearByLabels[nearByLabelNext]]].type].color[3],
-        2.5, 
-        228, 
-        128
-    )
-    arkadia_findme.labels:extended_popup(nearByLabels[nearByLabelNext])
-end
 
 timerhook=0
 function arkadia_findme.labels:label_popup(interestPointId)
