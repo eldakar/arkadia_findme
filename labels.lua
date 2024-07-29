@@ -10,6 +10,8 @@ arkadia_findme.labels = arkadia_findme.labels or {
         previousPathRoomId = 0
     },
     magic_nodes = {},
+    magic_multinodes = {},
+    magic_movers = {},
     magic_paths = {},
     visited_nodes = {},
     coloring=false,
@@ -102,17 +104,43 @@ function arkadia_findme.labels:load_magic_nodes()
     self.magic_nodes = {}
     self.magic_paths = {}
     if #results < 1 then
-      --  arkadia_findme:debug_print("<tomato>Nie znalazlem zadnych kluczy...")
         return
     end
     for k, v in pairs(results) do
         self.magic_nodes[results[k].id] = 100
     end
-    --arkadia_findme:debug_print("<tomato>Zaladowalem " .. #self.magic_nodes .. " kluczy!")
 end
 
 function arkadia_findme.labels:hide_nodes()
     for k, v in pairs(self.magic_nodes) do
+        unHighlightRoom(k)
+    end
+end
+
+function arkadia_findme.labels:load_magic_multinodes()
+    local results = db:fetch(self.mydb.labels,
+        db:OR(
+            db:eq(self.mydb.labels.type, 10),
+            db:eq(self.mydb.labels.type, 11)
+        )
+    )
+    self.magic_multinodes = {}
+    if #results < 1 then
+        return
+    end
+    for k, v in pairs(results) do
+        self.magic_multinodes[results[k].id] = 100
+    end
+end
+
+function arkadia_findme.labels:hide_nodes()
+    for k, v in pairs(self.magic_nodes) do
+        unHighlightRoom(k)
+    end
+end
+
+function arkadia_findme.labels:hide_multinodes()
+    for k, v in pairs(self.magic_multinodes) do
         unHighlightRoom(k)
     end
 end
@@ -130,7 +158,7 @@ function arkadia_findme.labels:load_magic_paths()
         if speedWalkDir and speedWalkDir[1] then
             self.magic_nodes[k] = #speedWalkPath
             --arkadia_findme:debug_print("<tomato>Znalazlem sciezke do <green>" .. v .. " <tomato> w ilosci krokow: <green>" .. #speedWalkDir)
-            if self.magic_nodes[k] < 30 then
+            if self.magic_nodes[k] < 40 then
                 for kk,vv in pairs(speedWalkPath) do
                     -- dont overwrite nodes with path
                     if not self.magic_nodes[vv] then
@@ -169,9 +197,12 @@ function arkadia_findme.labels:magic_toggle()
         self.coloring=false
         self:clear_magic_paths()
         self:hide_nodes()
+        self:hide_multinodes()
     else
         self.coloring=true
         self:show_magic()
+        self:load_magic_multinodes()
+        self:show_multinodes()
     end
 end
 
@@ -179,12 +210,18 @@ function arkadia_findme.labels:createMagicAlias()
     fmAdd = tempAlias("^/rmagic$", [[arkadia_findme.labels:magic_toggle()]])
 end
 
+function arkadia_findme.labels:show_multinodes()
+    for k, v in pairs(self.magic_multinodes) do
+        highlightRoom(k, 200, 0, 0, 200, 0, 0, 3, 70, 200)
+    end
+end
+
 function arkadia_findme.labels:show_all()
     for k, v in pairs(self.magic_nodes) do
-        if self.magic_nodes[k] < 30 then
-            highlightRoom(k, 155, 0, 155, 155, 0, 155, 25, 10, 200)
+        if self.magic_nodes[k] < 40 then
+            highlightRoom(k, 155, 0, 155, 155, 0, 155, 15, 10, 200)
         else
-            highlightRoom(k, 70, 0, 70, 70, 0, 70, 15, 10, 200)
+            highlightRoom(k, 70, 0, 70, 70, 0, 70, 10, 10, 200)
         end
     end
 end
