@@ -10,6 +10,7 @@ arkadia_findme.labels = arkadia_findme.labels or {
         previousPathRoomId = 0
     },
     magic_nodes = {},
+    magic_nodes_names = {},
     magic_multinodes = {},
     magic_movers = {},
     magic_paths = {},
@@ -98,8 +99,8 @@ end
 function arkadia_findme.labels:load_magic_nodes()
     local results = db:fetch(self.mydb.labels, db:AND(
         db:eq(self.mydb.labels.zone, amap.curr.area),
-        db:eq(self.mydb.labels.type, 9),
-        db:eq(self.mydb.labels.partysize, self.party)
+        db:eq(self.mydb.labels.type, 9)
+        --,db:eq(self.mydb.labels.partysize, self.party)
     ))
     self.magic_nodes = {}
     self.magic_paths = {}
@@ -130,6 +131,7 @@ function arkadia_findme.labels:load_magic_multinodes()
     end
     for k, v in pairs(results) do
         self.magic_multinodes[results[k].id] = 100
+        self.magic_nodes_names[results[k].id] = results[k].name
     end
 end
 
@@ -212,7 +214,11 @@ end
 
 function arkadia_findme.labels:show_multinodes()
     for k, v in pairs(self.magic_multinodes) do
-        highlightRoom(k, 200, 0, 0, 200, 0, 0, 3, 70, 200)
+        if self.magic_nodes_names[k] == 'Arlekin' then
+            highlightRoom(k, 200, 0, 100, 200, 0, 100, 3, 70, 200)
+        else
+            highlightRoom(k, 200, 0, 0, 200, 0, 0, 3, 70, 200)
+        end
     end
 end
 
@@ -224,6 +230,10 @@ function arkadia_findme.labels:show_all()
             highlightRoom(k, 70, 0, 70, 70, 0, 70, 10, 10, 200)
         end
     end
+end
+
+function arkadia_findme.labels:get_name()
+    arkadia_findme:debug_print(arkadia_findme.labels.magic_nodes_names[tostring(amap.curr.id)])
 end
 
 function arkadia_findme.labels:fix_zones()
