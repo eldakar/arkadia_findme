@@ -99,7 +99,10 @@ end
 function arkadia_findme.labels:load_magic_nodes()
     local results = db:fetch(self.mydb.labels, db:AND(
         db:eq(self.mydb.labels.zone, amap.curr.area),
-        db:eq(self.mydb.labels.type, 9)
+        db:OR(
+            db:eq(self.mydb.labels.type, 10),
+            db:eq(self.mydb.labels.type, 9)
+        )
         --,db:eq(self.mydb.labels.partysize, self.party)
     ))
     self.magic_nodes = {}
@@ -120,10 +123,7 @@ end
 
 function arkadia_findme.labels:load_magic_multinodes()
     local results = db:fetch(self.mydb.labels,
-        db:OR(
-            db:eq(self.mydb.labels.type, 10),
             db:eq(self.mydb.labels.type, 11)
-        )
     )
     self.magic_multinodes = {}
     if #results < 1 then
@@ -217,7 +217,7 @@ function arkadia_findme.labels:show_multinodes()
         if self.magic_nodes_names[k] == 'Arlekin' then
             highlightRoom(k, 200, 0, 100, 200, 0, 100, 3, 70, 200)
         else
-            highlightRoom(k, 200, 0, 0, 200, 0, 0, 3, 70, 200)
+            highlightRoom(k, 200, 100, 0, 200, 100, 0, 3, 70, 200)
         end
     end
 end
