@@ -4,11 +4,6 @@ arkadia_findme.labels = arkadia_findme.labels or {
     sortedKeys = {},
     currentitem = 0,
     mydb = nil,
-    trollmap = {},
-    dboptions = {
-        paths = {},
-        previousPathRoomId = 0
-    },
     magic_nodes = {},
     magic_nodes_names = {},
     magic_multinodes = {},
@@ -16,72 +11,9 @@ arkadia_findme.labels = arkadia_findme.labels or {
     magic_paths = {},
     visited_nodes = {},
     coloring=false,
-    party = 1
-}
-
-pointtypes = {
-    ["1"] = "kowal",
-    ["2"] = "poczta",
-    ["3"] = "costam",
-    ["4"] = "wiedza"
-}
-
-interestPointTypes = {
-    ["1"] = {
-        ["name"] = "kowal",
-        ["color"] = {20, 200, 100, 50, 50, 50, 1.3, 100, 100};
-        ["visibility"] = 8
-            },
-    ["2"] = {
-        ["name"] = "poczta",
-        ["color"] = {255, 255, 100, 50, 50, 50, 1.3, 100, 100};
-        ["visibility"] = 8
-            },
-    ["3"] = {
-        ["name"] = "wiedza",
-        ["color"] = {255, 255, 255, 50, 50, 50, 1.3, 100, 100};
-        ["visibility"] = 0
-            },
-    ["4"] = {
-        ["name"] = "woda",
-        ["color"] = {10, 10, 255, 50, 50, 50, 1.2, 100, 100};
-        ["visibility"] = 10
-            },
-    ["5"] = {
-        ["name"] = "skrzynia",
-        ["color"] = {255, 100, 0, 50, 50, 50, 1.2, 100, 100};
-        ["visibility"] = 10
-            },
-    ["6"] = {
-        ["name"] = "sklep",
-        ["color"] = {0, 100, 255, 50, 50, 50, 1.2, 100, 100};
-        ["visibility"] = 10
-            },
-    ["7"] = {
-        ["name"] = "biblioteka",
-        ["color"] = {200, 200, 200, 50, 50, 50, 1.2, 100, 100};
-        ["visibility"] = 5
-            },
-    ["8"] = {
-        ["name"] = "ekspedycja",
-        ["color"] = {0, 255, 255, 50, 50, 50, 1.2, 100, 100};
-        ["visibility"] = 5
-            },
-    ["9"] = {
-        ["name"] = "klucz",
-        ["color"] = {155, 0, 155, 200, 0, 200, 10, 70, 200};
-        ["visibility"] = 5
-            },
-    ["10"] = {
-        ["name"] = "sciezka",
-        ["color"] = {100, 200, 100, 50, 50, 50, 1.2, 100, 100};
-        ["visibility"] = 30
-            },                        
-    ["99"] = {
-        ["name"] = "safelock",
-        ["color"] = {255, 255, 255, 50, 50, 50, 1.8, 100, 100};
-        ["visibility"] = 50
-            }
+    party = 1,
+    magic_data = false,
+    timer = nil
 }
 
 
@@ -91,7 +23,7 @@ function arkadia_findme.labels:init()
     db:create("magiclabels", {labels={"id","name","type","zone","date","author","description", "partysize"}})
     self.mydb = db:get_database("magiclabels")
 
-    self.handler_data  = scripts.event_register:register_singleton_event_handler(self.handler_data, "amapCompassDrawingDone", function() self:show_magic() end)
+    self.handler_data  = scripts.event_register:register_singleton_event_handler(self.handler_data, "amapCompassDrawingDone", function() self:do_move() end)
 
     self:createMagicAlias()
 end
@@ -103,21 +35,13 @@ function arkadia_findme.labels:load_magic_nodes()
             db:eq(self.mydb.labels.type, 10),
             db:eq(self.mydb.labels.type, 9)
         )
-        --,db:eq(self.mydb.labels.partysize, self.party)
     ))
     self.magic_nodes = {}
-    self.magic_paths = {}
     if #results < 1 then
         return
     end
     for k, v in pairs(results) do
         self.magic_nodes[results[k].id] = 100
-    end
-end
-
-function arkadia_findme.labels:hide_nodes()
-    for k, v in pairs(self.magic_nodes) do
-        unHighlightRoom(k)
     end
 end
 
@@ -148,23 +72,25 @@ function arkadia_findme.labels:hide_multinodes()
 end
 
 function arkadia_findme.labels:load_magic_paths()
+    self:clear_magic_paths()
+
     if table.size(self.magic_nodes) < 1 then
-        --arkadia_findme:debug_print("<tomato>Nie znalazlem zadnych kluczy...")
         return
     end
-    --arkadia_findme:debug_print("<tomato>Resetuje sciezki...")
     self.magic_paths = {}
 
     for k, v in pairs(self.magic_nodes) do
-        getPath(amap.curr.id, k)
-        if speedWalkDir and speedWalkDir[1] then
-            self.magic_nodes[k] = #speedWalkPath
-            --arkadia_findme:debug_print("<tomato>Znalazlem sciezke do <green>" .. v .. " <tomato> w ilosci krokow: <green>" .. #speedWalkDir)
-            if self.magic_nodes[k] < 40 then
-                for kk,vv in pairs(speedWalkPath) do
-                    -- dont overwrite nodes with path
-                    if not self.magic_nodes[vv] then
-                        self.magic_paths[vv] = true
+        if self.visited_nodes[tonumber(k)] ~= true then
+            getPath(amap.curr.id, k)
+            if speedWalkDir and speedWalkDir[1] then
+                self.magic_nodes[k] = #speedWalkPath
+                if self.magic_nodes[k] < 40 then
+                    for kk,vv in pairs(speedWalkPath) do
+                        -- dont overwrite nodes with path
+                        if not self.magic_nodes[vv] then
+                            self.magic_paths[vv] = true
+                            highlightRoom(vv, 155, 0, 155, 155, 0, 155, 2, 70, 200)
+                        end
                     end
                 end
             end
@@ -178,19 +104,29 @@ function arkadia_findme.labels:clear_magic_paths()
     end
 end
 
-function arkadia_findme.labels:show_magic_paths()
-    for k, v in pairs(self.magic_paths) do
-        highlightRoom(k, 155, 0, 155, 155, 0, 155, 2, 70, 200)
+
+function arkadia_findme.labels:do_move()
+    if self.coloring then
+        if self.magic_nodes[tostring(amap.curr.id)] or self.magic_multinodes[tostring(amap.curr.id)] then
+            self.visited_nodes[amap.curr.id] = true
+        end
+        self:load_magic_nodes()
+        self:load_magic_paths()
     end
 end
 
-function arkadia_findme.labels:show_magic()
+function arkadia_findme.labels:node_refresher()
     if self.coloring then
-        self:clear_magic_paths()
-        self:load_magic_nodes()
-        self:load_magic_paths()
-        self:show_magic_paths()
-        self:show_all()
+        for k, v in pairs(self.magic_multinodes) do
+            highlightRoom(k, 200, 100, 0, 200, 100, 0, 3, 70, 200)  -- te zlote
+        end
+        for k, v in pairs(self.magic_nodes) do
+            highlightRoom(k, 255, 0, 255, 255, 0, 255, 3, 50, 230)  -- kluczyki do sciezek
+        end
+        for k, v in pairs(self.visited_nodes) do
+            highlightRoom(k, 70, 30, 0, 70, 30, 0, 3, 70, 150)      -- nadpisujemy wszystko na bury kolor
+        end
+        self.timer = tempTimer(1, function() arkadia_findme.labels:node_refresher() end)
     end
 end
 
@@ -200,11 +136,16 @@ function arkadia_findme.labels:magic_toggle()
         self:clear_magic_paths()
         self:hide_nodes()
         self:hide_multinodes()
+
+        if self.timer and exists(self.timer, "timer") then killTimer(self.timer) end
     else
         self.coloring=true
-        self:show_magic()
+        self:load_magic_nodes()
+        self:load_magic_paths()
         self:load_magic_multinodes()
         self:show_multinodes()
+--        self.timer = tempTimer(1, function self:node_refresher() end)
+        self.timer = tempTimer(1, function() arkadia_findme.labels:node_refresher() end)
     end
 end
 
@@ -214,18 +155,14 @@ end
 
 function arkadia_findme.labels:show_multinodes()
     for k, v in pairs(self.magic_multinodes) do
-        if self.magic_nodes_names[k] == 'Arlekin' then
-            highlightRoom(k, 200, 0, 100, 200, 0, 100, 3, 70, 200)
-        else
             highlightRoom(k, 200, 100, 0, 200, 100, 0, 3, 70, 200)
-        end
     end
 end
 
-function arkadia_findme.labels:show_all()
+function arkadia_findme.labels:show_magic_nodes()
     for k, v in pairs(self.magic_nodes) do
         if self.magic_nodes[k] < 40 then
-            highlightRoom(k, 155, 0, 155, 155, 0, 155, 15, 10, 200)
+            highlightRoom(k, 25, 0, 25, 155, 0, 155, 10, 1, 150)
         else
             highlightRoom(k, 70, 0, 70, 70, 0, 70, 10, 10, 200)
         end
@@ -248,29 +185,6 @@ function arkadia_findme.labels:fix_zones()
         db:update(self.mydb.labels, results[k])
     end
 end
-
-function arkadia_findme.labels:fix_partysize_imported_dargoth()
-    local results = db:fetch(self.mydb.labels, db:AND(db:eq(self.mydb.labels.partysize, ""), db:eq(self.mydb.labels.date, "")))
-    if #results == 0 then
-        arkadia_findme:debug_print("<tomato>Wszystkie partysize naprawione!")
-        return
-    end
-    arkadia_findme:debug_print("<tomato>Naprawiam pokoje bez partysize: " .. #results)
-    for k, v in pairs(results) do
-        partycounter = 1
-        partystring = results[k].description
-        for i in partystring:gmatch(",") do
-            partycounter = partycounter + 1
-        end
-        results[k].partysize = partycounter
-        db:update(self.mydb.labels, results[k])
-    end
-end
-
-
-
-nearByLabelNext = 1
-
 
 timerhook=0
 function arkadia_findme.labels:label_popup(interestPointId)
@@ -412,10 +326,6 @@ function arkadia_findme.labels:importPOI()
     else
         print("POI musi byc wlaczony: /cset! mc.poi.enabled=true")
     end
-end
-
-function arkadia_findme.labels:show(roomid)
-    highlightRoom(roomid, 20, 200, 100, 50, 50, 50, 1.5, 228, 128)
 end
 
 arkadia_findme.labels:init()
