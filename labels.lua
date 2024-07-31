@@ -87,7 +87,7 @@ function arkadia_findme.labels:load_magic_paths()
                 if self.magic_nodes[k] < 40 then
                     for kk,vv in pairs(speedWalkPath) do
                         -- dont overwrite nodes with path
-                        if not self.magic_nodes[vv] then
+                        if not self.magic_nodes[vv] and not self.magic_multinodes[vv] then
                             self.magic_paths[vv] = true
                             highlightRoom(vv, 155, 0, 155, 155, 0, 155, 2, 70, 200)
                         end
