@@ -10,7 +10,8 @@ arkadia_findme = arkadia_findme or {
     contributorsFile = "/findmelocations_contributors.txt",
     contributorsList = {},
     contributorsDBs = {},
-    coloring = false
+    coloring = false,
+    needrestart = false
 }
 --findme.highlight_current_room
 --findme.search_depth
@@ -25,11 +26,13 @@ function arkadia_findme:createHelpAlias()
         cecho("<gray>|  - rozpoznawanie czy postac sie zgubila                    |<reset>\n")
         cecho("<gray>|  - wyswietlanie stanu pokoju na mapce                      |<reset>\n")
         cecho("<gray>|  - heatmap opisania regionu                                |<reset>\n")
+        cecho("<gray>|  - sciezki do kluczy i takie tam                           |<reset>\n")        
         cecho("<gray>|                                                            |<reset>\n")
         cecho("<gray>|  <yellow>Aliasy                                                    <gray>|<reset>\n")
         cecho("<gray>|  <white>/findme<reset> - ta pomoc                                        |<reset>\n")
         cecho("<gray>|  <white>/rinfo<reset>  - wyswietla stan opisania pokoju                  |<reset>\n")
         cecho("<gray>|  <white>/rheat<reset>  - toggle podswietlania zmapowanych pol            |<reset>\n")
+        cecho("<gray>|  <white>/rmagic<reset> - toggle podswietlania kluczy                     |<reset>\n")
         cecho("<gray>|  <white>/rrank<reset>  - ranking kontrybutorow                           |<reset>\n")
         cecho("<gray>| *<green>/zlok2<reset>  - ALIAS DO WYSZUKIWANIA - korzysta z tej bazy     |<reset>\n")
         cecho("<gray>| *<green>/wroc<reset>   - cofa mapke do lokacji w ktorej uzylismy /zlok   |<reset>\n")
@@ -355,6 +358,10 @@ end
 function arkadia_findme:findme()
     if gmcp.room.time.season == nil then
         return false
+    end
+    if self.needrestart == true then
+        self:debug_print("<tomato>Zrestartuj skrypty!")
+        return
     end
 
     arkadia_findme.pre_zlok_room = amap.curr.id
@@ -732,6 +739,11 @@ function arkadia_findme:update()
     tempTimer(8, function() self:downloader_get_magic_labels() end)
     tempTimer(10, function() self:downloader_erase_masterdb() end)
     tempTimer(12, function() self:downloader_open_databases() end)
+
+    self.needrestart = true
+    scripts.event_register:kill_event_handler(self.handler_data)
+    scripts.event_register:kill_event_handler(self.handler_roomtime)
+    scripts.event_register:kill_event_handler(self.label.handler_data)
 end
 
 -- room_id - amap.curr.id
