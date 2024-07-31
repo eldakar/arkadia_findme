@@ -743,7 +743,7 @@ function arkadia_findme:update()
     self.needrestart = true
     scripts.event_register:kill_event_handler(self.handler_data)
     scripts.event_register:kill_event_handler(self.handler_roomtime)
-    scripts.event_register:kill_event_handler(self.label.handler_data)
+    scripts.event_register:kill_event_handler(self.labels.handler_data)
 end
 
 -- room_id - amap.curr.id
