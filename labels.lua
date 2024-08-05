@@ -258,34 +258,57 @@ function arkadia_findme.labels:extended_popup(interestPointId)
 end
 
 
-function arkadia_findme.labels:add_alias(labelTypeName)
-    local validType = nil
-    
-    for k, v in pairs(interestPointTypes) do
-        if interestPointTypes[k].name == labelTypeName then
-            self:add_plain(k)
-            self:show_zone()
-            print("/lab: " .. labelTypeName .. " dodana!")
-            return
-        end
-    end
-    print("/lab: Etykietka " .. labelTypeName .. " nie istnieje.")
-end
 
-function arkadia_findme.labels:add_plain(labeltype)
-    -- TODO
+
+
+
+
+
+---------------------------------------------------------
+--- EDYCJA
+--- -----------------------------------------------------
+
+function arkadia_findme.labels:set_type(typeName)
+    local tempType = 9
+    if typeName == "chodzi" then tempType = 11 end
+    if typeName == "stoi" then tempType = 9 end
+    if typeName == "pojawia" then tempType = 10 end
+
+    local results = db:fetch(self.mydb.labels, db:eq(self.mydb.labels.id, amap.curr.id))
+    if #results == 0 then
+        arkadia_findme:debug_print("Ten pokoj nie ma wpisu ;(")
+        return
+    end
+
+    for k, v in pairs(results) do
+        results[k].type = tempType
+        db:update(self.mydb.labels, results[k])
+    end
+    arkadia_findme:debug_print("Ustawilem nowy typ wpisow!")
+end
+tempAlias("^/rmagic_typ chodzi$", [[arkadia_findme.labels:set_type("chodzi")]])
+tempAlias("^/rmagic_typ stoi$", [[arkadia_findme.labels:set_type("stoi")]])
+tempAlias("^/rmagic_typ pojawia$", [[arkadia_findme.labels:set_type("pojawia")]])
+function arkadia_findme.labels:add_label(labelDescription)
+    -- >:-)
     db:delete(self.mydb.labels, db:eq(self.mydb.labels.id, amap.curr.id))
-    -- TODO
     db:add(self.mydb.labels, {
         id=amap.curr.id,
-        name=" ",
-        type=labeltype,
+        name=labelDescription,
+        type=9,
         zone=amap.curr.area,
         date=os.date("%c"),
-        author=ateam.options.own_name,
+        author=gmcp.char.info.name,
         description=" "
     })
+    arkadia_findme:debug_print("Dodalem wpis o magii...")
 end
+
+function arkadia_findme.labels:del_label()
+    db:delete(self.mydb.labels, db:eq(self.mydb.labels.id, amap.curr.id))
+    arkadia_findme:debug_print("Usunalem wpis o magii...")
+end
+tempAlias("^/rmagic_del$", [[arkadia_findme.labels:del_label()]])
 
 function arkadia_findme.labels:addfull(_id,_name,_type,_zone,_date,_author,_description)
       db:delete(self.mydb.labels, db:eq(self.mydb.labels.id, id))
