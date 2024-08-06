@@ -170,8 +170,14 @@ function arkadia_findme.labels:show_magic_nodes()
 end
 
 function arkadia_findme.labels:get_name()
-    arkadia_findme:debug_print(arkadia_findme.labels.magic_nodes_names[tostring(amap.curr.id)])
+    local results = db:fetch(self.mydb.labels, db:eq(self.mydb.labels.id, amap.curr.id))
+    if #results > 0 then
+        for k, v in pairs(results) do
+            arkadia_findme:debug_print("<reset>" .. results[k].id .. " " .. results[k].name .. " ")
+        end
+    end
 end
+tempAlias("^/rmagic_name$", [[arkadia_findme.labels:get_name()]])
 
 function arkadia_findme.labels:fix_zones()
     local results = db:fetch(self.mydb.labels, db:eq(self.mydb.labels.zone, ""))
@@ -181,6 +187,7 @@ function arkadia_findme.labels:fix_zones()
     end
     arkadia_findme:debug_print("<tomato>Naprawiam pokoje bez regionu: " .. #results)
     for k, v in pairs(results) do
+        print(v)
         results[k].zone = getAreaTableSwap()[getRoomArea(results[k].id)]
         db:update(self.mydb.labels, results[k])
     end
@@ -348,6 +355,29 @@ function arkadia_findme.labels:importPOI()
         end
     else
         print("POI musi byc wlaczony: /cset! mc.poi.enabled=true")
+    end
+end
+
+function mc.poi:get_last_kills_longer()
+    self.last_check = os.time() - 800000000
+    local params = { orderBy = [[%22time%22]], startAt = self.last_check }
+    FireBaseClientFactory:getClient():getData("keyMobsKills.json", function(data) self:update_kills(data) end, params)
+end
+
+function arkadia_findme.labels:merge_all_poi_data()
+    for k, v in pairs(mc.poi.kill_data) do
+        local results = db:fetch(self.mydb.labels, db:eq(self.mydb.labels.id, mc.poi.kill_data[k].loc))
+        if #results == 0 then
+            self:addfull(
+                mc.poi.kill_data[k].loc,
+                mc.poi.kill_data[k].mob,
+                11,
+                "",
+                os.date("%c"),
+                "Dargoth",
+                "POI import"
+            )
+        end
     end
 end
 
