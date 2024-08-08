@@ -13,7 +13,8 @@ arkadia_findme.labels = arkadia_findme.labels or {
     coloring=false,
     party = 1,
     magic_data = false,
-    timer = nil
+    timer = nil,
+    magic_popup = ""
 }
 
 
@@ -40,8 +41,10 @@ function arkadia_findme.labels:load_magic_nodes()
     if #results < 1 then
         return
     end
+    self.magic_nodes_names = {}
     for k, v in pairs(results) do
         self.magic_nodes[results[k].id] = 100
+        self.magic_nodes_names[results[k].id] = results[k].name
     end
 end
 
@@ -55,7 +58,6 @@ function arkadia_findme.labels:load_magic_multinodes()
     end
     for k, v in pairs(results) do
         self.magic_multinodes[results[k].id] = 100
-        self.magic_nodes_names[results[k].id] = results[k].name
     end
 end
 
@@ -78,6 +80,7 @@ function arkadia_findme.labels:load_magic_paths()
         return
     end
     self.magic_paths = {}
+    self.magic_popup = ""
 
     for k, v in pairs(self.magic_nodes) do
         if self.visited_nodes[tonumber(k)] ~= true then
@@ -85,6 +88,7 @@ function arkadia_findme.labels:load_magic_paths()
             if speedWalkDir and speedWalkDir[1] then
                 self.magic_nodes[k] = #speedWalkPath
                 if self.magic_nodes[k] < 40 then
+                    self.magic_popup = self.magic_popup .. amap.ui["dir_to_fancy_symbol"][speedWalkDir[1]] .. " " .. string.format("%-3s",#speedWalkPath) .. " " .. self.magic_nodes_names[k] .. "\n"
                     for kk,vv in pairs(speedWalkPath) do
                         -- dont overwrite nodes with path
                         if not self.magic_nodes[vv] and not self.magic_multinodes[vv] then
@@ -97,6 +101,11 @@ function arkadia_findme.labels:load_magic_paths()
         end
     end
 end
+
+function arkadia_findme.labels:map_info()
+    return self.magic_popup, true
+end
+
 
 function arkadia_findme.labels:clear_magic_paths()
     for k, v in pairs(self.magic_paths) do
@@ -132,18 +141,27 @@ end
 
 function arkadia_findme.labels:magic_toggle()
     if self.coloring then
+        arkadia_findme:debug_print("Wyswietlanie magikow <green>WYLACZONE")
         self.coloring=false
         self:clear_magic_paths()
         self:hide_nodes()
         self:hide_multinodes()
-
+        if arkadia_findme.labels.map_info == true then
+            disableMapInfo("MagicCompass")
+            killMapInfo("MagicCompass")
+        end
         if self.timer and exists(self.timer, "timer") then killTimer(self.timer) end
     else
+        arkadia_findme:debug_print("Wyswietlanie magikow <green>WLACZONE")
         self.coloring=true
         self:load_magic_nodes()
         self:load_magic_paths()
         self:load_magic_multinodes()
         self:show_multinodes()
+        if arkadia_findme.labels.map_info == true then
+            registerMapInfo("MagicCompass", function() return self:map_info() end)
+            enableMapInfo("MagicCompass")
+        end
 --        self.timer = tempTimer(1, function self:node_refresher() end)
         self.timer = tempTimer(1, function() arkadia_findme.labels:node_refresher() end)
     end
