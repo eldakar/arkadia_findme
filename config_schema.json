@@ -25,6 +25,12 @@
             "default_value": "",
             "field_type": "string",
             "macros_on_modify": []
+        },
+        {
+            "name": "arkadia_findme.labels.map_info",
+            "default_value": false,
+            "field_type": "boolean",
+            "macros_on_modify": []
         }
     ]
 }
