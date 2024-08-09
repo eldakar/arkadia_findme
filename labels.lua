@@ -82,6 +82,9 @@ function arkadia_findme.labels:load_magic_paths()
                 arkadia_findme.labels.magic_nodes[k] = #speedWalkPath
                 if arkadia_findme.labels.magic_nodes[k] < 40 then
                     if arkadia_findme.labels.magic_nodes_names[k] then
+                        if not amap.ui["dir_to_fancy_symbol"][speedWalkDir[1]] then
+                            amap.ui["dir_to_fancy_symbol"][speedWalkDir[1]] = "X"
+                        end
                         arkadia_findme.labels.magic_popup = arkadia_findme.labels.magic_popup .. amap.ui["dir_to_fancy_symbol"][speedWalkDir[1]] .. " " .. string.format("%-3s",#speedWalkPath) .. " " .. arkadia_findme.labels.magic_nodes_names[k] .. "\n"
                     end
                     for kk,vv in pairs(speedWalkPath) do
