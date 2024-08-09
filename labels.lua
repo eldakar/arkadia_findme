@@ -139,8 +139,10 @@ end
 function arkadia_findme.labels:magic_toggle()
     if arkadia_findme.labels.coloring then
         arkadia_findme:debug_print("Wyswietlanie magikow <green>WYLACZONE")
-        disableMapInfo("MC")
-        killMapInfo("MC")
+        if arkadia_findme.labels.map_info == true then
+            disableMapInfo("MC")
+            killMapInfo("MC")
+        end
         arkadia_findme.labels.coloring=false
         arkadia_findme.labels:clear_magic_paths()
         arkadia_findme.labels:hide_nodes()
@@ -148,9 +150,10 @@ function arkadia_findme.labels:magic_toggle()
         if arkadia_findme.labels.timer and exists(arkadia_findme.labels.timer, "timer") then killTimer(arkadia_findme.labels.timer) end
     else
         arkadia_findme:debug_print("Wyswietlanie magikow <green>WLACZONE")
-        --registerMapInfo("MC", function() return arkadia_findme.labels:map_info() end)
-        registerMapInfo("MC", function() return string.format("%s", arkadia_findme.labels.magic_popup) end)
-        enableMapInfo("MC")
+        if arkadia_findme.labels.map_info == true then
+            registerMapInfo("MC", function() return string.format("%s", arkadia_findme.labels.magic_popup) end)
+            enableMapInfo("MC")
+        end
         arkadia_findme.labels.coloring=true
         arkadia_findme.labels:load_magic_nodes()
         arkadia_findme.labels:load_magic_paths()
