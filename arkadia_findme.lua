@@ -714,12 +714,13 @@ end
 -- step 8
 function arkadia_findme:downloader_clean_magic_labels()
     -- delete all the old files
-    self:debug_print("<reset>(loader) Usuwam liste magikow...")
+    --db:close("magiclabels")
+    self:debug_print("<reset>(loader) Usuwam liste magikow z <yellow>Database_magiclabels.db<reset>...")
     os.remove(getMudletHomeDir().."/Database_magiclabels.db")
 end
 -- step 9
 function arkadia_findme:downloader_get_magic_labels()
-    self:debug_print("<reset>(loader) Pobieram liste magikow...")
+    self:debug_print("<reset>(loader) Pobieram liste magikow z <green>Database_magiclabels.db<reset>...")
     downloadFile(getMudletHomeDir().."/Database_magiclabels.db",'https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main/Database_magiclabels.db')
 end
 
@@ -735,8 +736,12 @@ function arkadia_findme:update()
     tempTimer(4, function() self:downloader_parse_reference() end)
     tempTimer(4.5, function() self:downloader_clean_databases() end)
     tempTimer(6, function() self:downloader_get_databases() end)
-    tempTimer(7, function() self:downloader_clean_magic_labels() end)
-    tempTimer(8, function() self:downloader_get_magic_labels() end)
+    if arkadia_findme.contributor_name == "opeteh" then
+        arkadia_findme:debug_print("<magenta>Witaj Opetehu, nie bedziemy odswiezali Twoich plikow magii... ;(<reset>")
+    else
+        tempTimer(7, function() self:downloader_clean_magic_labels() end)
+        tempTimer(8, function() self:downloader_get_magic_labels() end)
+    end
     tempTimer(10, function() self:downloader_erase_masterdb() end)
     tempTimer(12, function() self:downloader_open_databases() end)
 
