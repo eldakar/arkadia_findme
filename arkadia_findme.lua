@@ -359,10 +359,6 @@ function arkadia_findme:findme()
     if gmcp.room.time.season == nil then
         return false
     end
-    if self.needrestart == true then
-        self:debug_print("<tomato>Zrestartuj skrypty!")
-        return
-    end
 
     arkadia_findme.pre_zlok_room = amap.curr.id
     
@@ -419,12 +415,14 @@ function arkadia_findme:findme()
     end
 
     -- depth 2.1 : match distinct by short, within the mudlet map region
-    local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, region from locations where short = \"" .. amap.localization.current_short .. "\" and region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)] .. "\"")
+    if amap.localization.current_short ~= "" then
+        local results = db:fetch_sql(arkadia_findme.mydb.locations, "select distinct room_id, short, region from locations where short = \"" .. amap.localization.current_short .. "\" and region = \"" .. getAreaTableSwap()[getRoomArea(amap.curr.id)] .. "\"")
 
-    arkadia_findme:debug_print("D2.1: -RS- : <red>" .. #results .. " ")
-    if #results == 1 then
-        return self:set_room(results[1].room_id)
-    end    
+        arkadia_findme:debug_print("D2.1: -RS- : <red>" .. #results .. " ")
+        if #results == 1 then
+            return self:set_room(results[1].room_id)
+        end
+    end
 
     -- depth 3 : match by short + exits, ignoring region
     local results = db:fetch(self.mydb.locations, db:AND(
@@ -706,9 +704,9 @@ function arkadia_findme:downloader_open_databases()
 
     end
 
+    self:debug_print("<reset>(loader) <red>Zrestartuj Mudlet.")
 
-
-    self:debug_print("<reset>(loader) NALEZY ZRESTARTOWAC MUDLET!!!")
+    arkadia_findme:downloader_recover_db_schema()
 end
 
 -- step 8
@@ -723,6 +721,43 @@ function arkadia_findme:downloader_get_magic_labels()
     self:debug_print("<reset>(loader) Pobieram liste magikow z <green>Database_magiclabels.db<reset>...")
     downloadFile(getMudletHomeDir().."/Database_magiclabels.db",'https://raw.githubusercontent.com/eldakar/arkadia_findme_data/main/Database_magiclabels.db')
 end
+
+-- step 10
+function arkadia_findme:downloader_recover_db_schema()
+    db:create("magiclabels", {labels={"id","name","type","zone","date","author","description", "partysize"}})
+    arkadia_findme.labels.mydb = db:get_database("magiclabels")
+    db:create("findmelocations" .. arkadia_findme.contributor_name, {
+        locations={
+            "room_id",
+            "region",
+            "area",
+            "x",
+            "y",
+            "daylight",
+            "season",
+            "short",
+            "exits",
+            "created_on",
+            "created_by"
+        }})
+    self.contributordb = db:get_database("findmelocations" .. arkadia_findme.contributor_name)
+    db:create("findmelocations", {
+        locations={
+            "room_id",
+            "region",
+            "area",
+            "x",
+            "y",
+            "daylight",
+            "season",
+            "short",
+            "exits",
+            "created_on",
+            "created_by"
+        }})
+    self.mydb = db:get_database("findmelocations")
+end
+
 
 
 function arkadia_findme:update()
@@ -745,10 +780,9 @@ function arkadia_findme:update()
     tempTimer(10, function() self:downloader_erase_masterdb() end)
     tempTimer(12, function() self:downloader_open_databases() end)
 
-    self.needrestart = true
-    scripts.event_register:kill_event_handler(self.handler_data)
-    scripts.event_register:kill_event_handler(self.handler_roomtime)
-    scripts.event_register:kill_event_handler(self.labels.handler_data)
+    --scripts.event_register:kill_event_handler(self.handler_data)
+    --scripts.event_register:kill_event_handler(self.handler_roomtime)
+    --scripts.event_register:kill_event_handler(self.labels.handler_data)
 end
 
 -- room_id - amap.curr.id
